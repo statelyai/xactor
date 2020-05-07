@@ -5,7 +5,7 @@ type Logger = any;
 
 export interface ActorContext<T> {
   self: ActorRef<T>;
-  system: ActorSystem;
+  system: ActorSystem<any>;
   log: Logger;
   children: Set<ActorRef<any>>;
 
@@ -18,6 +18,15 @@ export enum Behaviors {
   Same,
 }
 
+export enum ActorSignal {
+  Start,
+  Stop,
+}
+
 export interface Behavior<T> {
   receive(ctx: ActorContext<T>, msg: T): Behavior<T> | Behaviors;
+  receiveSignal?(
+    ctx: ActorContext<T>,
+    signal: ActorSignal
+  ): Behavior<T> | Behaviors;
 }

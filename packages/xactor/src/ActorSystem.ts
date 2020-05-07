@@ -3,13 +3,16 @@ import { Behavior } from './Behavior';
 
 export class ActorSystem<T> {
   public settings: any;
-  private root: ActorRef<any>;
+  private guardian: ActorRef<any>;
+  public logger = (actorRef: ActorRef<any>) => (...args: any[]) => {
+    console.log(`[${this.name}/${actorRef.name}]`, ...args);
+  };
 
   constructor(behavior: Behavior<T>, public name: string) {
-    this.root = new ActorRef(behavior, this);
+    this.guardian = new ActorRef(behavior, name, this);
   }
 
   send(message: T) {
-    this.root.send(message);
+    this.guardian.send(message);
   }
 }

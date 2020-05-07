@@ -1,4 +1,4 @@
-import { ActorContext, Behavior, Behaviors } from './Behavior';
+import { ActorContext, Behavior, Behaviors, ActorSignal } from './Behavior';
 
 export function receive<T>(
   onMessage: (actorCtx: ActorContext<T>, message: T) => Behavior<T> | Behaviors
@@ -16,4 +16,22 @@ export function receive<T>(
   };
 
   return behavior;
+}
+
+export function setup<T>(
+  setup: (ctx: ActorContext<T>) => Behavior<T>
+): Behavior<T> {
+  return {
+    receive() {
+      throw new Error('Not started yet');
+    },
+    receiveSignal(ctx, signal) {
+      switch (signal) {
+        case ActorSignal.Start:
+          return setup(ctx);
+        default:
+          throw new Error('not implemented');
+      }
+    },
+  };
 }

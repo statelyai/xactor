@@ -5,7 +5,7 @@ import { ActorSystem } from '../src';
 describe('behaviors', () => {
   it('Behaviors.Same should result in same behavior', (done) => {
     const helloWorldBehavior = receive<{ whom: string }>((_, message) => {
-      console.log('Hello, ' + message.whom);
+      console.log('Sup, ' + message.whom);
 
       return Behaviors.Same;
     });
