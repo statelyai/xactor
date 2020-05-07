@@ -1,0 +1,38 @@
+{
+  "name": "@xactor/monorepo",
+  "version": "0.0.1",
+  "description": "Actors for the modern web",
+  "main": "index.js",
+  "repository": "git+https://github.com/davidkpiano/xactor.git",
+  "author": "David Khourshid",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@types/jest": "^25.2.1",
+    "@types/node": "^13.13.5",
+    "jest": "^26.0.1",
+    "lint-staged": "^10.2.2",
+    "prettier": "^2.0.5",
+    "typedoc": "^0.17.6",
+    "typescript": "^3.8.3"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/preset-env": "^7.9.6",
+    "@babel/preset-typescript": "^7.9.0",
+    "@preconstruct/cli": "^1.1.14",
+    "babel-plugin-transform-class-properties": "^6.24.1"
+  },
+  "preconstruct": {
+    "packages": [
+      "packages/*"
+    ]
+  },
+  "scripts": {
+    "postinstall": "preconstruct dev",
+    "test": "jest"
+  }
+}
