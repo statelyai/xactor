@@ -89,4 +89,157 @@ describe('ActorSystem', () => {
       done();
     }, 1000);
   });
+
+  it('aggregation example', (done) => {
+    interface OrchestratorState {
+      entities: Map<string, ActorRef<EntityEvent>>;
+      aggregations: {
+        [entityId: string]: number | undefined;
+      };
+    }
+    type OrchestratorEvent =
+      | {
+          type: 'entity.add';
+          entityId: string;
+          value: number;
+        }
+      | {
+          type: 'entity.receive';
+          entity: ActorRef<EntityEvent>;
+          count: number;
+        }
+      | {
+          type: 'getAll';
+        };
+
+    type EntityEvent =
+      | {
+          type: 'add';
+          value: number;
+        }
+      | {
+          type: 'get';
+          ref: ActorRef<OrchestratorEvent>;
+        };
+
+    interface EntityState {
+      count: number;
+    }
+
+    const entityReducer: behaviors.BehaviorReducer<EntityState, EntityEvent> = (
+      state,
+      event,
+      ctx
+    ) => {
+      if (event.type === 'add') {
+        ctx.log('adding', event.value, state.count);
+        state.count += event.value;
+      }
+
+      if (event.type === 'get') {
+        event.ref.send({
+          type: 'entity.receive',
+          entity: ctx.self,
+          count: state.count,
+        });
+      }
+
+      return state;
+    };
+
+    const orchestratorReducer: behaviors.BehaviorReducer<
+      OrchestratorState,
+      OrchestratorEvent
+    > = (state, event, ctx) => {
+      if (event.type === 'entity.add') {
+        let entity = state.entities.get(event.entityId);
+        if (!entity) {
+          entity = ctx.spawn(
+            behaviors.reduce(entityReducer, { count: 0 }),
+            event.entityId
+          );
+          state.entities.set(event.entityId, entity);
+        }
+
+        entity.send({ type: 'add', value: event.value });
+      }
+
+      if (event.type === 'getAll') {
+        Array.from(state.entities.entries()).forEach(([entityId, entity]) => {
+          state.aggregations[entityId] = undefined;
+
+          entity.send({ type: 'get', ref: ctx.self });
+        });
+      }
+
+      if (event.type === 'entity.receive') {
+        state.aggregations[event.entity.name] = event.count;
+
+        if (
+          Object.values(state.aggregations).every(
+            (value) => value !== undefined
+          )
+        ) {
+          ctx.log(state.aggregations);
+          done();
+        }
+      }
+
+      return state;
+    };
+
+    const system = new ActorSystem(
+      behaviors.reduce(orchestratorReducer, {
+        entities: new Map(),
+        aggregations: {},
+      }),
+      'orchestrator'
+    );
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'foo',
+      value: 3,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'foo',
+      value: 3,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'foo',
+      value: 2,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'bar',
+      value: 3,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'bar',
+      value: 3,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'bar',
+      value: 2,
+    });
+
+    system.send({
+      type: 'entity.add',
+      entityId: 'foo',
+      value: 1,
+    });
+
+    system.send({
+      type: 'getAll',
+    });
+  });
 });

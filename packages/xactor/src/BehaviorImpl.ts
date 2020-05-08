@@ -35,3 +35,26 @@ export function setup<T>(
     },
   };
 }
+
+export type BehaviorReducer<TState, TEvent> = (
+  state: TState,
+  event: TEvent,
+  actorCtx: ActorContext<TEvent>
+) => TState;
+
+export function reduce<TState, TEvent>(
+  reducer: BehaviorReducer<TState, TEvent>,
+  initialState: TState
+): Behavior<TEvent> {
+  const createReducerBehavior = (state: TState): Behavior<TEvent> => {
+    return {
+      receive(ctx, event) {
+        const nextState = reducer(state, event, ctx);
+
+        return createReducerBehavior(nextState);
+      },
+    };
+  };
+
+  return createReducerBehavior(initialState);
+}

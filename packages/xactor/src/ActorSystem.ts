@@ -5,7 +5,11 @@ export class ActorSystem<T> {
   public settings: any;
   private guardian: ActorRef<any>;
   public logger = (actorRef: ActorRef<any>) => (...args: any[]) => {
-    console.log(`[${this.name}/${actorRef.name}]`, ...args);
+    const label =
+      actorRef === this.guardian
+        ? `[${this.name}]`
+        : `[${this.name}/${actorRef.name}]`;
+    console.log(label, ...args);
   };
 
   constructor(behavior: Behavior<T>, public name: string) {
