@@ -5,9 +5,16 @@ export interface ActorRef<T> {
   send(message: T): void;
 }
 
+enum ActorRefStatus {
+  Idle,
+  Processing,
+}
+
 export class ActorRef<T> {
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
+  private mailbox: T[] = [];
+  private status: ActorRefStatus = ActorRefStatus.Idle;
 
   constructor(
     private behavior: Behavior<T>,
@@ -32,13 +39,27 @@ export class ActorRef<T> {
   }
 
   public send(message: T): void {
-    setTimeout(() => {
-      const nextBehavior = this.behavior.receive(this.actorContext, message);
+    this.mailbox.push(message);
+    if (this.status === ActorRefStatus.Idle) {
+      this.flush();
+    }
+  }
+  private process(message: T): void {
+    this.status = ActorRefStatus.Processing;
 
-      if (nextBehavior !== Behaviors.Same) {
-        this.behavior = nextBehavior;
-      }
-    });
+    const nextBehavior = this.behavior.receive(this.actorContext, message);
+
+    if (nextBehavior !== Behaviors.Same) {
+      this.behavior = nextBehavior;
+    }
+
+    this.status = ActorRefStatus.Idle;
+  }
+  private flush() {
+    while (this.mailbox.length) {
+      const message = this.mailbox.shift()!;
+      this.process(message);
+    }
   }
 
   private spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U> {
