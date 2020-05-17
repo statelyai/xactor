@@ -16,6 +16,7 @@ export interface ActorContext<T> {
 
 export enum Behaviors {
   Same,
+  Stopped,
 }
 
 export enum ActorSignal {

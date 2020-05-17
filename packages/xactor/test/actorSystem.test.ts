@@ -90,6 +90,195 @@ describe('ActorSystem', () => {
     }, 1000);
   });
 
+  it('more complex example', (done) => {
+    interface GetSession {
+      type: 'GetSession';
+      screenName: string;
+      replyTo: ActorRef<SessionEvent>;
+    }
+
+    type RoomCommand = GetSession | PublishSessionMessage;
+
+    interface SessionGranted {
+      type: 'SessionGranted';
+      handle: ActorRef<PostMessage>;
+    }
+
+    interface SessionDenied {
+      type: 'SessionDenied';
+      reason: string;
+    }
+
+    interface MessagePosted {
+      type: 'MessagePosted';
+      screenName: string;
+      message: string;
+    }
+
+    type SessionEvent = SessionGranted | SessionDenied | MessagePosted;
+
+    interface PostMessage {
+      type: 'PostMessage';
+      message: string;
+    }
+
+    interface NotifyClient {
+      type: 'NotifyClient';
+      message: MessagePosted;
+    }
+
+    type SessionCommand = PostMessage | NotifyClient;
+
+    interface PublishSessionMessage {
+      type: 'PublishSessionMessage';
+      screenName: string;
+      message: string;
+    }
+
+    // private def chatRoom(sessions: List[ActorRef[SessionCommand]]): Behavior[RoomCommand] =
+    // Behaviors.receive { (context, message) =>
+    //   message match {
+    //     case GetSession(screenName, client) =>
+    //       // create a child actor for further interaction with the client
+    //       val ses = context.spawn(
+    //         session(context.self, screenName, client),
+    //         name = URLEncoder.encode(screenName, StandardCharsets.UTF_8.name))
+    //       client ! SessionGranted(ses)
+    //       chatRoom(ses :: sessions)
+    //     case PublishSessionMessage(screenName, message) =>
+    //       val notification = NotifyClient(MessagePosted(screenName, message))
+    //       sessions.foreach(_ ! notification)
+    //       Behaviors.same
+    //   }
+    // }
+
+    const ChatRoom = (): Behavior<RoomCommand> => chatRoom([]);
+
+    const session = (
+      room: ActorRef<PublishSessionMessage>,
+      screenName: string,
+      client: ActorRef<SessionEvent>
+    ): Behavior<SessionCommand> => {
+      return behaviors.receive((_, message) => {
+        switch (message.type) {
+          case 'PostMessage':
+            room.send({
+              type: 'PublishSessionMessage',
+              screenName,
+              message: message.message,
+            });
+            return Behaviors.Same;
+          case 'NotifyClient':
+            client.send(message.message);
+            return Behaviors.Same;
+          default:
+            return Behaviors.Same;
+        }
+      });
+    };
+
+    // private def chatRoom(sessions: List[ActorRef[SessionCommand]]): Behavior[RoomCommand] =
+    // Behaviors.receive { (context, message) =>
+    //   message match {
+    //     case GetSession(screenName, client) =>
+    //       // create a child actor for further interaction with the client
+    //       val ses = context.spawn(
+    //         session(context.self, screenName, client),
+    //         name = URLEncoder.encode(screenName, StandardCharsets.UTF_8.name))
+    //       client ! SessionGranted(ses)
+    //       chatRoom(ses :: sessions)
+    //     case PublishSessionMessage(screenName, message) =>
+    //       val notification = NotifyClient(MessagePosted(screenName, message))
+    //       sessions.foreach(_ ! notification)
+    //       Behaviors.same
+    //   }
+    // }
+
+    const chatRoom = (
+      sessions: ActorRef<SessionCommand>[]
+    ): Behavior<RoomCommand> => {
+      return behaviors.receive((context, message) => {
+        switch (message.type) {
+          case 'GetSession':
+            const ses = context.spawn(
+              session(context.self as any, message.screenName, message.replyTo),
+              message.screenName
+            );
+            message.replyTo.send({
+              type: 'SessionGranted',
+              handle: ses as any,
+            });
+            return chatRoom([ses, ...sessions]);
+          case 'PublishSessionMessage':
+            const notification: NotifyClient = {
+              type: 'NotifyClient',
+              message: {
+                type: 'MessagePosted',
+                screenName: message.screenName,
+                message: message.message,
+              },
+            };
+            sessions.forEach((session) => session.send(notification));
+            return Behaviors.Same;
+        }
+      });
+    };
+
+    const Gabbler = (): Behavior<SessionEvent> => {
+      return behaviors.setup((context) => {
+        return behaviors.receive((_, message) => {
+          switch (message.type) {
+            case 'SessionGranted':
+              message.handle.send({
+                type: 'PostMessage',
+                message: 'Hello world!',
+              });
+              return Behaviors.Same;
+            case 'MessagePosted':
+              context.log(
+                `message has been posted by '${message.screenName}': ${message.message}`
+              );
+              done();
+              return Behaviors.Stopped;
+            default:
+              return Behaviors.Same;
+          }
+        });
+      });
+    };
+
+    // val chatRoom = context.spawn(ChatRoom(), "chatroom")
+    // val gabblerRef = context.spawn(Gabbler(), "gabbler")
+    // context.watch(gabblerRef)
+    // chatRoom ! ChatRoom.GetSession("ol’ Gabbler", gabblerRef)
+
+    // Behaviors.receiveSignal {
+    //   case (_, Terminated(_)) =>
+    //     Behaviors.stopped
+    // }
+
+    const Main = (): any => {
+      return behaviors.setup((context) => {
+        const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
+        const gabblerRef = context.spawn(Gabbler(), 'gabbler');
+
+        console.log('here');
+
+        // context.watch(gabblerRef); // TODO
+
+        chatRoom.send({
+          type: 'GetSession',
+          screenName: "ol' Gabbler",
+          replyTo: gabblerRef,
+        });
+
+        return Behaviors.Same as any;
+      });
+    };
+
+    const mainSystem = new ActorSystem(Main(), 'ChatRoomDemo');
+  });
+
   it('aggregation example', (done) => {
     interface OrchestratorState {
       entities: Map<string, ActorRef<EntityEvent>>;

@@ -11,6 +11,12 @@ export function receive<T>(
         return behavior;
       }
 
+      if (newBehavior === Behaviors.Stopped) {
+        return {
+          receive: () => null as any,
+        };
+      }
+
       return newBehavior;
     },
   };
