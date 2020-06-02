@@ -1,17 +1,27 @@
-import { ActorContext, Behavior, Behaviors, ActorSignal } from './Behavior';
+import { ActorContext, Behavior, BehaviorTag, ActorSignal } from './Behavior';
 
 export function receive<T>(
-  onMessage: (actorCtx: ActorContext<T>, message: T) => Behavior<T> | Behaviors
+  onMessage: (
+    actorCtx: ActorContext<T>,
+    message: T
+  ) => Behavior<T> | BehaviorTag,
+  onSignal?: (
+    actorCtx: ActorContext<T>,
+    signal: ActorSignal
+  ) => Behavior<T> | BehaviorTag
 ): Behavior<T> {
   const behavior: Behavior<T> = {
     receive(actorCtx, message) {
       const newBehavior = onMessage(actorCtx, message);
 
-      if (newBehavior === Behaviors.Same) {
+      if (newBehavior === BehaviorTag.Same) {
         return behavior;
       }
 
-      if (newBehavior === Behaviors.Stopped) {
+      if (newBehavior === BehaviorTag.Stopped) {
+        actorCtx.children.forEach((child) => {
+          actorCtx.stop(child);
+        });
         return {
           receive: () => null as any,
         };
@@ -19,6 +29,40 @@ export function receive<T>(
 
       return newBehavior;
     },
+    receiveSignal: onSignal
+      ? (actorCtx, signal) => {
+          const newBehavior = onSignal(actorCtx, signal);
+
+          if (newBehavior === BehaviorTag.Same) {
+            return behavior;
+          }
+
+          if (newBehavior === BehaviorTag.Stopped) {
+            actorCtx.children.forEach((child) => {
+              actorCtx.stop(child);
+            });
+
+            return {
+              receive: () => null as any,
+            };
+          }
+
+          return newBehavior;
+        }
+      : undefined,
+  };
+
+  return behavior;
+}
+
+export function receiveSignal<T>(
+  onSignal: (actorCtx: ActorContext<T>, signal: ActorSignal) => Behavior<T>
+): Behavior<T> {
+  const behavior = {
+    receive: () => {
+      return behavior;
+    },
+    receiveSignal: onSignal,
   };
 
   return behavior;
@@ -63,4 +107,10 @@ export function reduce<TState, TEvent>(
   };
 
   return createReducerBehavior(initialState);
+}
+
+export function stopped(cleanup: () => void): BehaviorTag.Stopped {
+  cleanup(); // TODO: determine where this goes
+
+  return BehaviorTag.Stopped;
 }

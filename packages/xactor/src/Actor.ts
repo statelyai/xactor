@@ -1,4 +1,4 @@
-import { ActorContext, Behavior, ActorSignal, Behaviors } from './Behavior';
+import { ActorContext, Behavior, ActorSignal, BehaviorTag } from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
 
@@ -25,7 +25,8 @@ export class Actor<T> {
       log: this.system.logger(ref),
       children: this.children,
       spawn: this.spawn.bind(this),
-      stop: (child) => {
+      stop: (child: ActorRef<any>): void => {
+        child.signal(ActorSignal.PostStop);
         this.children.delete(child);
       },
     };
@@ -42,14 +43,16 @@ export class Actor<T> {
       this.flush();
     }
   }
+  public receiveSignal(signal: ActorSignal): void {
+    this.behavior =
+      this.behavior.receiveSignal?.(this.actorContext, signal) || this.behavior;
+  }
   private process(message: T): void {
     this.status = ActorRefStatus.Processing;
 
     const nextBehavior = this.behavior.receive(this.actorContext, message);
 
-    if (nextBehavior !== Behaviors.Same) {
-      this.behavior = nextBehavior;
-    }
+    this.behavior = nextBehavior;
 
     this.status = ActorRefStatus.Idle;
   }
@@ -61,6 +64,8 @@ export class Actor<T> {
   }
 
   private spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U> {
-    return new ActorRef<U>(behavior, name, this.system);
+    const child = new ActorRef<U>(behavior, name, this.system);
+    this.children.add(child);
+    return child;
   }
 }

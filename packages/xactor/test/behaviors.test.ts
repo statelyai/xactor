@@ -1,5 +1,5 @@
 import { receive } from '../src/BehaviorImpl';
-import { Behaviors } from '../src/Behavior';
+import { BehaviorTag } from '../src/Behavior';
 import { ActorSystem } from '../src';
 
 describe('behaviors', () => {
@@ -7,7 +7,7 @@ describe('behaviors', () => {
     const helloWorldBehavior = receive<{ whom: string }>((_, message) => {
       console.log('Sup, ' + message.whom);
 
-      return Behaviors.Same;
+      return BehaviorTag.Same;
     });
 
     const system = new ActorSystem(helloWorldBehavior, 'Hello');

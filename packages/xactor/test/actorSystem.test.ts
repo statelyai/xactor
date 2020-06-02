@@ -1,7 +1,7 @@
 import { ActorSystem, Behavior } from '../src';
 import * as behaviors from '../src/BehaviorImpl';
 import { ActorRef } from '../src/ActorRef';
-import { Behaviors } from '../src/Behavior';
+import { BehaviorTag, Logger, ActorSignal } from '../src/Behavior';
 
 describe('ActorSystem', () => {
   it('simple test', (done) => {
@@ -39,7 +39,7 @@ describe('ActorSystem', () => {
         whom: message.whom,
         from: ctx.self,
       });
-      return Behaviors.Same;
+      return BehaviorTag.Same;
     });
 
     const HelloWorldBot = (max: number) => {
@@ -76,7 +76,7 @@ describe('ActorSystem', () => {
           replyTo,
         });
 
-        return Behaviors.Same;
+        return BehaviorTag.Same;
       });
     });
 
@@ -167,12 +167,12 @@ describe('ActorSystem', () => {
               screenName,
               message: message.message,
             });
-            return Behaviors.Same;
+            return BehaviorTag.Same;
           case 'NotifyClient':
             client.send(message.message);
-            return Behaviors.Same;
+            return BehaviorTag.Same;
           default:
-            return Behaviors.Same;
+            return BehaviorTag.Same;
         }
       });
     };
@@ -219,7 +219,7 @@ describe('ActorSystem', () => {
               },
             };
             sessions.forEach((session) => session.send(notification));
-            return Behaviors.Same;
+            return BehaviorTag.Same;
         }
       });
     };
@@ -233,15 +233,15 @@ describe('ActorSystem', () => {
                 type: 'PostMessage',
                 message: 'Hello world!',
               });
-              return Behaviors.Same;
+              return BehaviorTag.Same;
             case 'MessagePosted':
               context.log(
                 `message has been posted by '${message.screenName}': ${message.message}`
               );
               done();
-              return Behaviors.Stopped;
+              return BehaviorTag.Stopped;
             default:
-              return Behaviors.Same;
+              return BehaviorTag.Same;
           }
         });
       });
@@ -262,8 +262,6 @@ describe('ActorSystem', () => {
         const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
         const gabblerRef = context.spawn(Gabbler(), 'gabbler');
 
-        console.log('here');
-
         // context.watch(gabblerRef); // TODO
 
         chatRoom.send({
@@ -272,7 +270,7 @@ describe('ActorSystem', () => {
           replyTo: gabblerRef,
         });
 
-        return Behaviors.Same as any;
+        return BehaviorTag.Same as any;
       });
     };
 
@@ -430,5 +428,82 @@ describe('ActorSystem', () => {
     system.send({
       type: 'getAll',
     });
+  });
+
+  it('guardian actor should receive messages sent to system', (done) => {
+    const HelloWorldMain = behaviors.receive<{ type: 'hello' }>((_, event) => {
+      expect(event.type).toEqual('hello');
+
+      done();
+
+      return BehaviorTag.Same;
+    });
+
+    const system = new ActorSystem(HelloWorldMain, 'hello');
+
+    system.send({ type: 'hello' });
+  });
+
+  it.only('stopping actors', (done) => {
+    // https://doc.akka.io/docs/akka/2.6.5/typed/actor-lifecycle.html#stopping-actors
+
+    interface SpawnJob {
+      type: 'SpawnJob';
+      name: string;
+    }
+
+    interface GracefulShutdown {
+      type: 'GracefulShutdown';
+    }
+
+    type Command = SpawnJob | GracefulShutdown;
+
+    const Job = (name: string): Behavior<Command> => {
+      return behaviors.receiveSignal<Command>((context, signal) => {
+        if (signal === ActorSignal.PostStop) {
+          context.log(`Worker ${name} stopped`);
+        }
+
+        return BehaviorTag.Same;
+      });
+    };
+
+    const MasterControlProgram = (): Behavior<Command> => {
+      const cleanup = (log: Logger): void => {
+        log(`Cleaning up!`);
+      };
+
+      return behaviors.receive(
+        (context, message) => {
+          switch (message.type) {
+            case 'SpawnJob':
+              const { name: jobName } = message;
+              context.log(`Spawning job ${jobName}!`);
+              context.spawn(Job(jobName), jobName);
+              return BehaviorTag.Same;
+            case 'GracefulShutdown':
+              context.log(`Initiating graceful shutdown...`);
+              return behaviors.stopped(() => {
+                cleanup(context.log);
+              });
+          }
+        },
+        (context, signal) => {
+          if (signal === ActorSignal.PostStop) {
+            context.log(`Master Control Program stopped`);
+          }
+          return BehaviorTag.Same;
+        }
+      );
+    };
+
+    const system = new ActorSystem(MasterControlProgram(), 'B7700');
+
+    system.send({ type: 'SpawnJob', name: 'a' });
+    system.send({ type: 'SpawnJob', name: 'b' });
+
+    setTimeout(() => {
+      system.send({ type: 'GracefulShutdown' });
+    }, 100);
   });
 });

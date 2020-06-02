@@ -20,3 +20,7 @@ export class ActorSystem<T> {
     this.guardian.send(message);
   }
 }
+
+export function createSystem<T>(behavior: Behavior<T>, name: string) {
+  return new ActorSystem<T>(behavior, name);
+}

@@ -1,4 +1,4 @@
-import { ActorContext, Behavior, Behaviors, ActorSignal } from './Behavior';
+import { ActorContext, Behavior, BehaviorTag, ActorSignal } from './Behavior';
 import { ActorSystem } from './ActorSystem';
 import { Actor } from './Actor';
 
@@ -17,5 +17,9 @@ export class ActorRef<T> {
 
   public send(message: T): void {
     this.actor.receive(message);
+  }
+
+  public signal(signal: ActorSignal): void {
+    this.actor.receiveSignal(signal);
   }
 }

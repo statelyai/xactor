@@ -1,7 +1,7 @@
 import { ActorSystem } from './ActorSystem';
 import { ActorRef } from './ActorRef';
 
-type Logger = any;
+export type Logger = any;
 
 export interface ActorContext<T> {
   self: ActorRef<T>;
@@ -14,7 +14,7 @@ export interface ActorContext<T> {
   stop<U>(child: ActorRef<U>): void;
 }
 
-export enum Behaviors {
+export enum BehaviorTag {
   Same,
   Stopped,
 }
@@ -22,12 +22,10 @@ export enum Behaviors {
 export enum ActorSignal {
   Start,
   Stop,
+  PostStop,
 }
 
-export interface Behavior<T> {
-  receive(ctx: ActorContext<T>, msg: T): Behavior<T> | Behaviors;
-  receiveSignal?(
-    ctx: ActorContext<T>,
-    signal: ActorSignal
-  ): Behavior<T> | Behaviors;
-}
+export type Behavior<T> = {
+  receive(ctx: ActorContext<T>, msg: T): Behavior<T>;
+  receiveSignal?(ctx: ActorContext<T>, signal: ActorSignal): Behavior<T>;
+};
