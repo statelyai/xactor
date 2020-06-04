@@ -15,6 +15,7 @@ export interface ActorContext<T> {
 }
 
 export enum BehaviorTag {
+  Default,
   Same,
   Stopped,
 }
@@ -26,6 +27,10 @@ export enum ActorSignal {
 }
 
 export type Behavior<T> = {
-  receive(ctx: ActorContext<T>, msg: T): Behavior<T>;
-  receiveSignal?(ctx: ActorContext<T>, signal: ActorSignal): Behavior<T>;
+  readonly _tag: BehaviorTag;
+  receive(ctx: ActorContext<T>, msg: T): Behavior<T> | BehaviorTag;
+  receiveSignal?(
+    ctx: ActorContext<T>,
+    signal: ActorSignal
+  ): Behavior<T> | BehaviorTag;
 };

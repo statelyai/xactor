@@ -1,6 +1,7 @@
 import { ActorContext, Behavior, ActorSignal, BehaviorTag } from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
+import { isBehavior, stopped } from './BehaviorImpl';
 
 enum ActorRefStatus {
   Idle,
@@ -32,9 +33,38 @@ export class Actor<T> {
     };
 
     // start immediately?
-    this.behavior =
+    this.behavior = this.resolveBehavior(
       this.behavior.receiveSignal?.(this.actorContext, ActorSignal.Start) ||
-      this.behavior;
+        this.behavior
+    );
+  }
+
+  private resolveBehavior(
+    behaviorOrTag: Behavior<T> | BehaviorTag
+  ): Behavior<T> {
+    const behaviorTag = isBehavior(behaviorOrTag)
+      ? behaviorOrTag._tag
+      : behaviorOrTag;
+
+    switch (behaviorTag) {
+      case BehaviorTag.Stopped:
+        this.actorContext.children.forEach((child) => {
+          this.actorContext.stop(child);
+        });
+
+        const stoppedBehavior =
+          (this.behavior.receiveSignal?.(
+            this.actorContext,
+            ActorSignal.PostStop
+          ) as Behavior<T>) || this.behavior;
+
+        return stoppedBehavior;
+      case BehaviorTag.Default:
+        return behaviorOrTag as Behavior<T>;
+      case BehaviorTag.Same:
+      default:
+        return this.behavior;
+    }
   }
 
   public receive(message: T): void {
@@ -44,15 +74,16 @@ export class Actor<T> {
     }
   }
   public receiveSignal(signal: ActorSignal): void {
-    this.behavior =
-      this.behavior.receiveSignal?.(this.actorContext, signal) || this.behavior;
+    this.behavior = this.resolveBehavior(
+      this.behavior.receiveSignal?.(this.actorContext, signal) || this.behavior
+    );
   }
   private process(message: T): void {
     this.status = ActorRefStatus.Processing;
 
     const nextBehavior = this.behavior.receive(this.actorContext, message);
 
-    this.behavior = nextBehavior;
+    this.behavior = this.resolveBehavior(nextBehavior);
 
     this.status = ActorRefStatus.Idle;
   }

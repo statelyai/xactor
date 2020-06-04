@@ -6,6 +6,7 @@ import { BehaviorTag, Logger, ActorSignal } from '../src/Behavior';
 describe('ActorSystem', () => {
   it('simple test', (done) => {
     const rootBehavior: Behavior<any> = {
+      _tag: BehaviorTag.Default, // TODO: make this default
       receive(_, event: any) {
         expect(event).toEqual({ type: 'hey' });
         done();
@@ -444,8 +445,9 @@ describe('ActorSystem', () => {
     system.send({ type: 'hello' });
   });
 
-  it.only('stopping actors', (done) => {
+  it('stopping actors', (done) => {
     // https://doc.akka.io/docs/akka/2.6.5/typed/actor-lifecycle.html#stopping-actors
+    const stoppedActors: any[] = [];
 
     interface SpawnJob {
       type: 'SpawnJob';
@@ -462,6 +464,7 @@ describe('ActorSystem', () => {
       return behaviors.receiveSignal<Command>((context, signal) => {
         if (signal === ActorSignal.PostStop) {
           context.log(`Worker ${name} stopped`);
+          stoppedActors.push(name);
         }
 
         return BehaviorTag.Same;
@@ -491,6 +494,9 @@ describe('ActorSystem', () => {
         (context, signal) => {
           if (signal === ActorSignal.PostStop) {
             context.log(`Master Control Program stopped`);
+
+            expect(stoppedActors).toEqual(['a', 'b']);
+            done();
           }
           return BehaviorTag.Same;
         }
