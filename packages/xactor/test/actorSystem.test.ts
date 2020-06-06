@@ -575,3 +575,82 @@ describe('ActorSystem', () => {
     });
   });
 });
+
+describe('interaction patterns', () => {
+  it('fire and forget', (done) => {
+    interface PrintMe {
+      type: 'PrintMe';
+      message: string;
+    }
+
+    const Printer = (): Behavior<PrintMe> => {
+      return behaviors.receive((ctx, msg) => {
+        switch (msg.type) {
+          case 'PrintMe':
+            ctx.log(msg.message);
+            if (msg.message === 'not message 2') {
+              done();
+            }
+            return BehaviorTag.Same;
+        }
+      });
+    };
+
+    const sys = createSystem(Printer(), 'fire-and-forget-sample');
+
+    sys.send({ type: 'PrintMe', message: 'message 1' });
+    sys.send({ type: 'PrintMe', message: 'not message 2' });
+  });
+
+  it('request-response', (done) => {
+    interface ResponseMsg {
+      type: 'Response';
+      result: string;
+    }
+    interface RequestMsg {
+      type: 'Request';
+      query: string;
+      replyTo: ActorRef<ResponseMsg | any>;
+    }
+
+    const CookieFabric = (): Behavior<RequestMsg> =>
+      behaviors.receive((ctx, msg) => {
+        switch (msg.type) {
+          case 'Request':
+            msg.replyTo.send({
+              type: 'Response',
+              result: `Here are the cookies for [${msg.query}]!`,
+            });
+            return BehaviorTag.Same;
+          default:
+            return BehaviorTag.Same;
+        }
+      });
+
+    const Requestor = (): Behavior<ResponseMsg | { type: 'start' }> =>
+      behaviors.receive((ctx, msg) => {
+        switch (msg.type) {
+          case 'start':
+            const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
+
+            cookieFabric.send({
+              type: 'Request',
+              query: 'my query',
+              replyTo: ctx.self,
+            });
+
+            return BehaviorTag.Same;
+          case 'Response':
+            ctx.log(`Got a response: ${msg.result}`);
+            done();
+            return BehaviorTag.Same;
+          default:
+            return BehaviorTag.Same;
+        }
+      });
+
+    const sys = createSystem(Requestor(), 'test');
+
+    sys.send({ type: 'start' });
+  });
+});
