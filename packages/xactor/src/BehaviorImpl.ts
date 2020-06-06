@@ -1,4 +1,10 @@
-import { ActorContext, Behavior, BehaviorTag, ActorSignal } from './Behavior';
+import {
+  ActorContext,
+  Behavior,
+  BehaviorTag,
+  ActorSignal,
+  ActorSignalType,
+} from './Behavior';
 
 export function isBehavior<T>(behavior: any): behavior is Behavior<T> {
   return typeof behavior === 'object' && '_tag' in behavior;
@@ -48,7 +54,7 @@ export function receiveSignal<T>(
 }
 
 export function setup<T>(
-  setup: (ctx: ActorContext<T>) => Behavior<T>
+  setup: (ctx: ActorContext<T>) => Behavior<T> | BehaviorTag
 ): Behavior<T> {
   return {
     _tag: BehaviorTag.Default,
@@ -56,8 +62,8 @@ export function setup<T>(
       throw new Error('Not started yet');
     },
     receiveSignal(ctx, signal) {
-      switch (signal) {
-        case ActorSignal.Start:
+      switch (signal.type) {
+        case ActorSignalType.Start:
           return setup(ctx);
         default:
           throw new Error('not implemented');

@@ -1,4 +1,10 @@
-import { ActorContext, Behavior, ActorSignal, BehaviorTag } from './Behavior';
+import {
+  ActorContext,
+  Behavior,
+  ActorSignal,
+  BehaviorTag,
+  ActorSignalType,
+} from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
 import { isBehavior, stopped } from './BehaviorImpl';
@@ -14,6 +20,11 @@ export class Actor<T> {
   private mailbox: T[] = [];
   private status: ActorRefStatus = ActorRefStatus.Idle;
 
+  // same as `watching` in Scala ActorRef
+  private topics = {
+    watchers: new Set<ActorRef<any>>(),
+  };
+
   constructor(
     private behavior: Behavior<T>,
     public name: string,
@@ -27,15 +38,25 @@ export class Actor<T> {
       children: this.children,
       spawn: this.spawn.bind(this),
       stop: (child: ActorRef<any>): void => {
-        child.signal(ActorSignal.PostStop);
+        child.signal({ type: ActorSignalType.PostStop });
         this.children.delete(child);
+      },
+      subscribeTo: (topic: 'watchers', subscriberRef: ActorRef<any>) => {
+        this.topics[topic].add(subscriberRef);
+      },
+      watch: (actorRef) => {
+        actorRef.signal({
+          type: ActorSignalType.Watch,
+          ref,
+        });
       },
     };
 
     // start immediately?
     this.behavior = this.resolveBehavior(
-      this.behavior.receiveSignal?.(this.actorContext, ActorSignal.Start) ||
-        this.behavior
+      this.behavior.receiveSignal?.(this.actorContext, {
+        type: ActorSignalType.Start,
+      }) || this.behavior
     );
   }
 
@@ -52,11 +73,17 @@ export class Actor<T> {
           this.actorContext.stop(child);
         });
 
+        this.topics.watchers.forEach((watcher) => {
+          watcher.signal({
+            type: ActorSignalType.Terminated,
+            ref: this.actorContext.self,
+          });
+        });
+
         const stoppedBehavior =
-          (this.behavior.receiveSignal?.(
-            this.actorContext,
-            ActorSignal.PostStop
-          ) as Behavior<T>) || this.behavior;
+          (this.behavior.receiveSignal?.(this.actorContext, {
+            type: ActorSignalType.PostStop,
+          }) as Behavior<T>) || this.behavior;
 
         return stoppedBehavior;
       case BehaviorTag.Default:
@@ -74,6 +101,11 @@ export class Actor<T> {
     }
   }
   public receiveSignal(signal: ActorSignal): void {
+    if (signal.type === ActorSignalType.Watch) {
+      this.topics.watchers.add(signal.ref);
+      return;
+    }
+
     this.behavior = this.resolveBehavior(
       this.behavior.receiveSignal?.(this.actorContext, signal) || this.behavior
     );

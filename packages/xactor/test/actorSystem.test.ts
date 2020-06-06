@@ -1,7 +1,13 @@
 import { ActorSystem, Behavior } from '../src';
 import * as behaviors from '../src/BehaviorImpl';
 import { ActorRef } from '../src/ActorRef';
-import { BehaviorTag, Logger, ActorSignal } from '../src/Behavior';
+import {
+  BehaviorTag,
+  Logger,
+  ActorSignal,
+  ActorSignalType,
+} from '../src/Behavior';
+import { createSystem } from '../src/ActorSystem';
 
 describe('ActorSystem', () => {
   it('simple test', (done) => {
@@ -462,7 +468,7 @@ describe('ActorSystem', () => {
 
     const Job = (name: string): Behavior<Command> => {
       return behaviors.receiveSignal<Command>((context, signal) => {
-        if (signal === ActorSignal.PostStop) {
+        if (signal.type === ActorSignalType.PostStop) {
           context.log(`Worker ${name} stopped`);
           stoppedActors.push(name);
         }
@@ -492,7 +498,7 @@ describe('ActorSystem', () => {
           }
         },
         (context, signal) => {
-          if (signal === ActorSignal.PostStop) {
+          if (signal.type === ActorSignalType.PostStop) {
             context.log(`Master Control Program stopped`);
 
             expect(stoppedActors).toEqual(['a', 'b']);
@@ -511,5 +517,61 @@ describe('ActorSystem', () => {
     setTimeout(() => {
       system.send({ type: 'GracefulShutdown' });
     }, 100);
+  });
+
+  it('watching actors', (done) => {
+    interface SpawnJob {
+      type: 'SpawnJob';
+      jobName: string;
+    }
+
+    const Job = (name: string): Behavior<{ type: 'finished' }> =>
+      behaviors.setup((ctx) => {
+        setTimeout(() => {
+          ctx.self.send({ type: 'finished' });
+        }, 100);
+
+        ctx.log(`Hi I am job ${name}`);
+        return behaviors.receive((ctx, msg) => {
+          if (msg.type === 'finished') {
+            return behaviors.stopped(() => {});
+          }
+          return BehaviorTag.Same;
+        });
+      });
+
+    const MasterControlProgram = (): Behavior<SpawnJob> => {
+      return behaviors.receive(
+        (context, message) => {
+          switch (message.type) {
+            case 'SpawnJob':
+              context.log(`Spawning job ${message.jobName}!`);
+              const job = context.spawn(Job(message.jobName), message.jobName);
+              context.watch(job);
+              return BehaviorTag.Same;
+            default:
+              return BehaviorTag.Same;
+          }
+        },
+        (context, signal) => {
+          switch (signal.type) {
+            case ActorSignalType.Terminated:
+              context.log(`Job stopped: ${signal.ref.name}`);
+              expect(signal.ref.name).toEqual('job1');
+              done();
+              return BehaviorTag.Same;
+            default:
+              return BehaviorTag.Same;
+          }
+        }
+      );
+    };
+
+    const sys = createSystem(MasterControlProgram(), 'master');
+
+    sys.send({
+      type: 'SpawnJob',
+      jobName: 'job1',
+    });
   });
 });
