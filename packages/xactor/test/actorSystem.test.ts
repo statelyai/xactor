@@ -617,7 +617,7 @@ describe('interaction patterns', () => {
       behaviors.receive((ctx, msg) => {
         switch (msg.type) {
           case 'Request':
-            msg.replyTo.send({
+            ctx.send(msg.replyTo, {
               type: 'Response',
               result: `Here are the cookies for [${msg.query}]!`,
             });
@@ -633,7 +633,7 @@ describe('interaction patterns', () => {
           case 'start':
             const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
 
-            cookieFabric.send({
+            ctx.send(cookieFabric, {
               type: 'Request',
               query: 'my query',
               replyTo: ctx.self,
@@ -642,6 +642,53 @@ describe('interaction patterns', () => {
             return BehaviorTag.Same;
           case 'Response':
             ctx.log(`Got a response: ${msg.result}`);
+            console.log(sys.logs);
+
+            const participants: Set<ActorRef<any>> = new Set();
+
+            sys.logs.map((log) => {
+              if ('log' in log) {
+                participants.add(log.ref);
+              } else {
+                participants.add(log.from);
+                participants.add(log.to);
+              }
+            });
+
+            const parr = Array.from(participants);
+
+            const seqDiagram =
+              `sequenceDiagram\n` +
+              parr
+                .map((value, index) => {
+                  return `  participant ${index} as ${value.name}`;
+                })
+                .join('\n') +
+              '\n' +
+              sys.logs
+                .map((log) => {
+                  if ('log' in log) {
+                    return `  Note right of ${parr.indexOf(log.ref)}: ${
+                      log.log
+                    }`;
+                  }
+
+                  const from = parr.indexOf(log.from);
+                  const to = parr.indexOf(log.to);
+
+                  return `  ${from}->>${to}: '${JSON.stringify(
+                    log.message,
+                    (key, value) => {
+                      if (value instanceof ActorRef) {
+                        return value.name;
+                      }
+                      return value;
+                    }
+                  )}'`;
+                })
+                .join('\n');
+
+            console.log(seqDiagram);
             done();
             return BehaviorTag.Same;
           default:
@@ -653,4 +700,41 @@ describe('interaction patterns', () => {
 
     sys.send({ type: 'start' });
   });
+
+  // it('request-response with ask between two actors', (done) => {
+  //   // object Hal {
+  //   //   sealed trait Command
+  //   //   case class OpenThePodBayDoorsPlease(replyTo: ActorRef[Response]) extends Command
+  //   //   case class Response(message: String)
+
+  //   //   def apply(): Behaviors.Receive[Hal.Command] =
+  //   //     Behaviors.receiveMessage[Command] {
+  //   //       case OpenThePodBayDoorsPlease(replyTo) =>
+  //   //         replyTo ! Response("I'm sorry, Dave. I'm afraid I can't do that.")
+  //   //         Behaviors.same
+  //   //     }
+  //   // }
+
+  //   interface HalResponse {
+  //     type: 'HalResponse';
+  //     message: string;
+  //   }
+
+  //   interface OpenThePodBayDoorsPlease {
+  //     type: 'OpenThePodBayDoorsPlease';
+  //     replyTo: ActorRef<HalResponse>;
+  //   }
+
+  //   const Hal = () =>
+  //     behaviors.receive<OpenThePodBayDoorsPlease>((ctx, msg) => {
+  //       switch (msg.type) {
+  //         case 'OpenThePodBayDoorsPlease':
+  //           msg.replyTo.send({
+  //             type: 'HalResponse',
+  //             message: "I'm sorry, Dave. I'm afraid I can't do that.",
+  //           });
+  //           return BehaviorTag.Same;
+  //       }
+  //     });
+  // });
 });

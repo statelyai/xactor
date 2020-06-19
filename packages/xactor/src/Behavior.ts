@@ -9,6 +9,7 @@ export interface ActorContext<T> {
   log: Logger;
   children: Set<ActorRef<any>>;
   watch: (actorRef: ActorRef<any>) => void;
+  send: <U>(actorRef: ActorRef<U>, message: U) => void;
   subscribeTo: (topic: 'watchers', subscriber: ActorRef<any>) => void;
 
   // spawnAnonymous<U>(behavior: Behavior<U>): ActorRef<U>;

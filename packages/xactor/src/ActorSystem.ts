@@ -12,6 +12,19 @@ export class ActorSystem<T> {
     console.log(label, ...args);
   };
 
+  // TODO: structured logging
+  public logs: Array<
+    | {
+        from: ActorRef<any>;
+        to: ActorRef<any>;
+        message: any;
+      }
+    | {
+        ref: ActorRef<any>;
+        log: string;
+      }
+  > = [];
+
   constructor(behavior: Behavior<T>, public name: string) {
     this.guardian = new ActorRef(behavior, name, this);
   }

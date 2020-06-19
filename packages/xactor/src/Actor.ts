@@ -31,12 +31,30 @@ export class Actor<T> {
     ref: ActorRef<T>,
     private system: ActorSystem<any>
   ) {
+    const logger = this.system.logger(ref);
+
     this.actorContext = {
       self: ref,
       system: this.system,
-      log: this.system.logger(ref),
+      log: (logMessage: string) => {
+        this.system.logs.push({
+          ref,
+          log: logMessage,
+        });
+
+        logger(logMessage);
+      },
       children: this.children,
       spawn: this.spawn.bind(this),
+      send: (actorRef, message) => {
+        this.system.logs.push({
+          from: ref,
+          to: actorRef,
+          message,
+        });
+
+        actorRef.send(message);
+      },
       stop: (child: ActorRef<any>): void => {
         child.signal({ type: ActorSignalType.PostStop });
         this.children.delete(child);
