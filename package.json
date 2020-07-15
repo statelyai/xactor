@@ -1,38 +1,41 @@
 {
-  "name": "@xactor/monorepo",
-  "version": "0.0.1",
-  "description": "Actors for the modern web",
-  "main": "index.js",
-  "repository": "git+https://github.com/davidkpiano/xactor.git",
-  "author": "David Khourshid",
+  "version": "0.1.0",
   "license": "MIT",
-  "private": true,
-  "devDependencies": {
-    "@types/jest": "^25.2.1",
-    "@types/node": "^13.13.5",
-    "jest": "^26.0.1",
-    "lint-staged": "^10.2.2",
-    "prettier": "^2.0.5",
-    "typedoc": "^0.17.6",
-    "typescript": "^3.8.3"
-  },
-  "workspaces": [
-    "packages/*"
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
   ],
-  "dependencies": {
-    "@babel/plugin-proposal-class-properties": "^7.8.3",
-    "@babel/preset-env": "^7.9.6",
-    "@babel/preset-typescript": "^7.9.0",
-    "@preconstruct/cli": "^1.1.14",
-    "babel-plugin-transform-class-properties": "^6.24.1"
-  },
-  "preconstruct": {
-    "packages": [
-      "packages/*"
-    ]
+  "engines": {
+    "node": ">=10"
   },
   "scripts": {
-    "postinstall": "preconstruct dev",
-    "test": "jest"
+    "start": "tsdx watch",
+    "build": "tsdx build",
+    "test": "tsdx test",
+    "lint": "tsdx lint",
+    "prepare": "tsdx build"
+  },
+  "peerDependencies": {},
+  "husky": {
+    "hooks": {
+      "pre-commit": "tsdx lint"
+    }
+  },
+  "prettier": {
+    "printWidth": 80,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "name": "xactor",
+  "author": "David Khourshid",
+  "module": "dist/xactor.esm.js",
+  "devDependencies": {
+    "husky": "^4.2.5",
+    "tsdx": "^0.13.2",
+    "tslib": "^2.0.0",
+    "typescript": "^3.9.6"
   }
 }

@@ -1,9 +1,0 @@
-{
-  "name": "xactor",
-  "version": "0.0.1",
-  "description": "Actors for the modern web",
-  "main": "dist/xactor.cjs.js",
-  "module": "dist/xactor.esm.js",
-  "author": "David Khourshid",
-  "license": "MIT"
-}
