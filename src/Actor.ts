@@ -3,6 +3,7 @@ import {
   ActorSignal,
   ActorSignalType,
   Misbehavior,
+  MisbehaviorTag,
 } from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
@@ -72,7 +73,7 @@ export class Actor<T> {
     };
 
     // start immediately?
-    this.state = this.reducer(
+    [this.state] = this.reducer(
       this.state,
       { type: ActorSignalType.Start },
       this.actorContext
@@ -130,16 +131,21 @@ export class Actor<T> {
       return;
     }
 
-    this.state = this.reducer(this.state, signal, this.actorContext);
+    const [state] = this.reducer(this.state, signal, this.actorContext);
 
-    // this.behavior = this.resolveBehavior(
-    //   this.behavior.receiveSignal?.(this.actorContext, signal) || this.behavior
-    // );
+    this.state = state;
   }
   private process(message: T): void {
+    console.log('processing message', message);
     this.status = ActorRefStatus.Processing;
 
-    this.state = this.reducer(this.state, message, this.actorContext);
+    const [state, tag] = this.reducer(this.state, message, this.actorContext);
+
+    this.state = state;
+
+    if (tag === MisbehaviorTag.Stopped) {
+      this.stop();
+    }
 
     // const nextBehavior = this.behavior.receive(this.actorContext, message);
 
@@ -147,6 +153,14 @@ export class Actor<T> {
 
     this.status = ActorRefStatus.Idle;
   }
+
+  private stop() {
+    this.actorContext.children.forEach(child => {
+      this.actorContext.stop(child);
+    });
+    this.receiveSignal({ type: ActorSignalType.PostStop });
+  }
+
   private flush() {
     while (this.mailbox.length) {
       const message = this.mailbox.shift()!;

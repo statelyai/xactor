@@ -26,7 +26,6 @@ export enum BehaviorTag {
 
 export enum ActorSignalType {
   Start,
-  Stop,
   PostStop,
   Watch,
   Terminated,
@@ -34,7 +33,6 @@ export enum ActorSignalType {
 
 export type ActorSignal =
   | { type: ActorSignalType.Start }
-  | { type: ActorSignalType.Stop }
   | { type: ActorSignalType.PostStop }
   | { type: ActorSignalType.Watch; ref: ActorRef<any> }
   | { type: ActorSignalType.Terminated; ref: ActorRef<any> };
@@ -48,7 +46,16 @@ export type Behavior<T> = {
   ): Behavior<T> | BehaviorTag;
 };
 
+export enum MisbehaviorTag {
+  Default,
+  Stopped,
+}
+
 export type Misbehavior<T, TState = any> = [
-  (state: TState, message: T | ActorSignal, ctx: ActorContext<T>) => TState,
+  (
+    state: TState,
+    message: T | ActorSignal,
+    ctx: ActorContext<T>
+  ) => [TState, MisbehaviorTag],
   TState
 ];

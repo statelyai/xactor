@@ -5,6 +5,7 @@ import {
   ActorSignal,
   ActorSignalType,
   Misbehavior,
+  MisbehaviorTag,
 } from './Behavior';
 
 export function isBehavior<T>(behavior: any): behavior is Behavior<T> {
@@ -119,11 +120,13 @@ export function setup<T>(
   };
 }
 
+export type TaggedState<TState> = [TState, MisbehaviorTag];
+
 export type BehaviorReducer<TState, TEvent> = (
   state: TState,
-  event: TEvent,
+  event: TEvent | ActorSignal,
   actorCtx: ActorContext<TEvent>
-) => TState;
+) => TState | TaggedState<TState>;
 
 export function reduce<TState, TEvent>(
   reducer: BehaviorReducer<TState, TEvent>,
@@ -135,7 +138,7 @@ export function reduce<TState, TEvent>(
       receive(ctx, event) {
         const nextState = reducer(state, event, ctx);
 
-        return createReducerBehavior(nextState);
+        return createReducerBehavior(nextState as any);
       },
     };
   };
@@ -149,27 +152,56 @@ export function stopped(cleanup: () => void): BehaviorTag.Stopped {
   return BehaviorTag.Stopped;
 }
 
+export function isTaggedState<TState>(
+  state: TState | TaggedState<TState>
+): state is TaggedState<TState> {
+  return (
+    Array.isArray(state) &&
+    (state[1] === MisbehaviorTag.Default || state[1] === MisbehaviorTag.Stopped)
+  );
+}
+
 export function fromReducer<T, TState = any>(
   reducer: BehaviorReducer<TState, T>,
   initial: TState
 ): Misbehavior<T, TState> {
   return [
     (state, msg, ctx) => {
-      if (isSignal(msg)) {
-        return state;
+      const nextState = reducer(state, msg, ctx);
+
+      if (isTaggedState(nextState)) {
+        const [, tag] = nextState;
+
+        if (tag === MisbehaviorTag.Stopped) {
+          console.log('sending ie');
+          ctx.children.forEach(child => {
+            child.send({ type: ActorSignalType.PostStop });
+          });
+        }
+
+        return nextState;
       }
 
-      return reducer(state, msg, ctx);
+      return [nextState, MisbehaviorTag.Default];
     },
     initial,
   ];
 }
 
 export function fromReceive<T>(
-  fn: (ctx: ActorContext<T>, msg: T) => void
+  fn?: (ctx: ActorContext<T>, msg: T) => void,
+  signalFn?: (ctx: ActorContext<T>, signal: ActorSignal) => void
 ): Misbehavior<T> {
-  return fromReducer<T, undefined>((_, msg, ctx) => {
-    fn(ctx, msg);
-    return undefined;
-  }, undefined);
+  return [
+    (_, msg, ctx) => {
+      if (isSignal(msg)) {
+        signalFn?.(ctx, msg);
+        return [undefined, MisbehaviorTag.Default];
+      }
+
+      fn?.(ctx, msg);
+      return [undefined, MisbehaviorTag.Default];
+    },
+    undefined,
+  ];
 }
