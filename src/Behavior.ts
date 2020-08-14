@@ -37,15 +37,6 @@ export type ActorSignal =
   | { type: ActorSignalType.Watch; ref: ActorRef<any> }
   | { type: ActorSignalType.Terminated; ref: ActorRef<any> };
 
-export type Behavior<T> = {
-  readonly _tag: BehaviorTag;
-  receive(ctx: ActorContext<T>, msg: T): Behavior<T> | BehaviorTag;
-  receiveSignal?(
-    ctx: ActorContext<T>,
-    signal: ActorSignal
-  ): Behavior<T> | BehaviorTag;
-};
-
 export enum MisbehaviorTag {
   Setup,
   Default,

@@ -12,23 +12,6 @@ import { createSystem } from '../src/ActorSystem';
 
 describe('ActorSystem', () => {
   it('simple test', done => {
-    // const rootBehavior: Behavior<any> = {
-    //   _tag: BehaviorTag.Default, // TODO: make this default
-    //   receive(_, event: any) {
-    //     expect(event).toEqual({ type: 'hey' });
-    //     done();
-    //     return rootBehavior;
-    //   },
-    // };
-
-    // const rootBehavior: Misbehavior<any> = [
-    //   (_, msg, ctx) => {
-    //     expect(msg).toEqual({ type: 'hey' });
-    //     return;
-    //   },
-    //   undefined,
-    // ];
-
     const rootBehavior = behaviors.fromReducer((_, msg) => {
       if (behaviors.isSignal(msg)) return undefined;
       console.log('msg recd', msg);
@@ -131,20 +114,6 @@ describe('ActorSystem', () => {
       [{ greeter: undefined }, MisbehaviorTag.Default],
     ];
 
-    // const HelloWorldMain = behaviors.setup<SayHello>((ctx) => {
-    //   const greeter = ctx.spawn(HelloWorld, 'greeter');
-
-    //   return behaviors.receive((_, message) => {
-    //     const replyTo = ctx.spawn(HelloWorldBot(3), message.name);
-    //     greeter.send({
-    //       whom: message.name,
-    //       replyTo,
-    //     });
-
-    //     return BehaviorTag.Same;
-    //   });
-    // });
-
     const system = new ActorSystem(HelloWorldMain, 'hello');
 
     system.send({ name: 'World' });
@@ -200,23 +169,6 @@ describe('ActorSystem', () => {
       message: string;
     }
 
-    // private def chatRoom(sessions: List[ActorRef[SessionCommand]]): Behavior[RoomCommand] =
-    // Behaviors.receive { (context, message) =>
-    //   message match {
-    //     case GetSession(screenName, client) =>
-    //       // create a child actor for further interaction with the client
-    //       val ses = context.spawn(
-    //         session(context.self, screenName, client),
-    //         name = URLEncoder.encode(screenName, StandardCharsets.UTF_8.name))
-    //       client ! SessionGranted(ses)
-    //       chatRoom(ses :: sessions)
-    //     case PublishSessionMessage(screenName, message) =>
-    //       val notification = NotifyClient(MessagePosted(screenName, message))
-    //       sessions.foreach(_ ! notification)
-    //       Behaviors.same
-    //   }
-    // }
-
     const ChatRoom = (): Misbehavior<RoomCommand> => chatRoom([]);
 
     const session = (
@@ -241,23 +193,6 @@ describe('ActorSystem', () => {
         }
       }, undefined);
     };
-
-    // private def chatRoom(sessions: List[ActorRef[SessionCommand]]): Behavior[RoomCommand] =
-    // Behaviors.receive { (context, message) =>
-    //   message match {
-    //     case GetSession(screenName, client) =>
-    //       // create a child actor for further interaction with the client
-    //       val ses = context.spawn(
-    //         session(context.self, screenName, client),
-    //         name = URLEncoder.encode(screenName, StandardCharsets.UTF_8.name))
-    //       client ! SessionGranted(ses)
-    //       chatRoom(ses :: sessions)
-    //     case PublishSessionMessage(screenName, message) =>
-    //       val notification = NotifyClient(MessagePosted(screenName, message))
-    //       sessions.foreach(_ ! notification)
-    //       Behaviors.same
-    //   }
-    // }
 
     const chatRoom = (
       sessions: ActorRef<SessionCommand>[]
@@ -320,17 +255,6 @@ describe('ActorSystem', () => {
       }, undefined);
     };
 
-    // val chatRoom = context.spawn(ChatRoom(), "chatroom")
-    // val gabblerRef = context.spawn(Gabbler(), "gabbler")
-    // context.watch(gabblerRef)
-    // chatRoom ! ChatRoom.GetSession("ol’ Gabbler", gabblerRef)
-
-    // Behaviors.receiveSignal {
-    //   case (_, Terminated(_)) =>
-    //     Behaviors.stopped
-    // }
-
-    // @ts-ignore
     const Main = () =>
       behaviors.fromReducer((_, message, context) => {
         if (
@@ -350,8 +274,6 @@ describe('ActorSystem', () => {
       }, undefined);
 
     new ActorSystem(Main(), 'Chat');
-
-    // @ts-ignore
   });
 
   it('aggregation example', done => {
@@ -537,14 +459,6 @@ describe('ActorSystem', () => {
 
     type Command = SpawnJob | GracefulShutdown;
 
-    // const Job = (name: string) =>
-    //   behaviors.fromReceive<Command>(undefined, (ctx, signal) => {
-    //     if (signal.type === ActorSignalType.PostStop) {
-    //       ctx.log(`Worker ${name} stopped`);
-    //       stoppedActors.push(name);
-    //     }
-    //   });
-
     const Job = (name: string) =>
       behaviors.fromReducer<Command>((_, signal, ctx) => {
         ctx.log(signal);
@@ -554,19 +468,8 @@ describe('ActorSystem', () => {
         }
       }, undefined);
 
-    // const Job = (name: string): Behavior<Command> => {
-    //   return behaviors.receiveSignal<Command>((context, signal) => {
-    //     if (signal.type === ActorSignalType.PostStop) {
-    //       context.log(`Worker ${name} stopped`);
-    //       stoppedActors.push(name);
-    //     }
-
-    //     return BehaviorTag.Same;
-    //   });
-    // };
-
     const MasterControlProgram = () =>
-      behaviors.fromReducer<Command>((_state, message, context) => {
+      behaviors.fromReducer<Command>((state, message, context) => {
         const cleanup = (log: Logger): void => {
           log(`Cleaning up!`);
         };
@@ -590,41 +493,9 @@ describe('ActorSystem', () => {
             return;
           case 'GracefulShutdown':
             context.log(`Initiating graceful shutdown...`);
-            return ['asdf', MisbehaviorTag.Stopped];
+            return [state, MisbehaviorTag.Stopped];
         }
-      }, 'asdf');
-
-    // const MasterControlProgram = (): Behavior<Command> => {
-    //   const cleanup = (log: Logger): void => {
-    //     log(`Cleaning up!`);
-    //   };
-
-    //   return behaviors.receive(
-    //     (context, message) => {
-    //       switch (message.type) {
-    //         case 'SpawnJob':
-    //           const { name: jobName } = message;
-    //           context.log(`Spawning job ${jobName}!`);
-    //           context.spawn(Job(jobName), jobName);
-    //           return BehaviorTag.Same;
-    //         case 'GracefulShutdown':
-    //           context.log(`Initiating graceful shutdown...`);
-    //           return behaviors.stopped(() => {
-    //             cleanup(context.log);
-    //           });
-    //       }
-    //     },
-    //     (context, signal) => {
-    //       if (signal.type === ActorSignalType.PostStop) {
-    //         context.log(`Master Control Program stopped`);
-
-    //         expect(stoppedActors).toEqual(['a', 'b']);
-    //         done();
-    //       }
-    //       return BehaviorTag.Same;
-    //     }
-    //   );
-    // };
+      }, undefined);
 
     const system = new ActorSystem(MasterControlProgram(), 'B7700');
 
@@ -641,21 +512,6 @@ describe('ActorSystem', () => {
       type: 'SpawnJob';
       jobName: string;
     }
-
-    // const Job = (name: string): Behavior<{ type: 'finished' }> =>
-    //   behaviors.setup(ctx => {
-    //     setTimeout(() => {
-    //       ctx.self.send({ type: 'finished' });
-    //     }, 100);
-
-    //     ctx.log(`Hi I am job ${name}`);
-    //     return behaviors.receive((ctx, msg) => {
-    //       if (msg.type === 'finished') {
-    //         return behaviors.stopped(() => {});
-    //       }
-    //       return BehaviorTag.Same;
-    //     });
-    //   });
 
     const Job = (name: string) =>
       behaviors.fromReducer<{ type: 'finished' }, 'one' | 'two'>(
@@ -730,165 +586,181 @@ describe('ActorSystem', () => {
   }, 1000);
   // });
 
-  // describe('interaction patterns', () => {
-  //   it('fire and forget', done => {
-  //     interface PrintMe {
-  //       type: 'PrintMe';
-  //       message: string;
-  //     }
+  describe('interaction patterns', () => {
+    it('fire and forget', done => {
+      interface PrintMe {
+        type: 'PrintMe';
+        message: string;
+      }
 
-  //     const Printer = (): Behavior<PrintMe> => {
-  //       return behaviors.receive((ctx, msg) => {
-  //         switch (msg.type) {
-  //           case 'PrintMe':
-  //             ctx.log(msg.message);
-  //             if (msg.message === 'not message 2') {
-  //               done();
-  //             }
-  //             return BehaviorTag.Same;
-  //         }
-  //       });
-  //     };
+      // const Printer = (): Behavior<PrintMe> => {
+      //   return behaviors.receive((ctx, msg) => {
+      //     switch (msg.type) {
+      //       case 'PrintMe':
+      //         ctx.log(msg.message);
+      //         if (msg.message === 'not message 2') {
+      //           done();
+      //         }
+      //         return BehaviorTag.Same;
+      //     }
+      //   });
+      // };
 
-  //     const sys = createSystem(Printer(), 'fire-and-forget-sample');
+      const Printer = () =>
+        behaviors.fromReducer<PrintMe>((state, msg, ctx) => {
+          switch (msg.type) {
+            case 'PrintMe':
+              ctx.log(msg.message);
+              if (msg.message === 'not message 2') {
+                done();
+              }
+              return state;
+          }
+        }, undefined);
 
-  //     sys.send({ type: 'PrintMe', message: 'message 1' });
-  //     sys.send({ type: 'PrintMe', message: 'not message 2' });
-  //   });
+      const sys = createSystem(Printer(), 'fire-and-forget-sample');
 
-  //   it('request-response', done => {
-  //     interface ResponseMsg {
-  //       type: 'Response';
-  //       result: string;
-  //     }
-  //     interface RequestMsg {
-  //       type: 'Request';
-  //       query: string;
-  //       replyTo: ActorRef<ResponseMsg | any>;
-  //     }
+      sys.send({ type: 'PrintMe', message: 'message 1' });
+      sys.send({ type: 'PrintMe', message: 'not message 2' });
+    });
 
-  //     const CookieFabric = (): Behavior<RequestMsg> =>
-  //       behaviors.receive((ctx, msg) => {
-  //         switch (msg.type) {
-  //           case 'Request':
-  //             ctx.send(msg.replyTo, {
-  //               type: 'Response',
-  //               result: `Here are the cookies for [${msg.query}]!`,
-  //             });
-  //             return BehaviorTag.Same;
-  //           default:
-  //             return BehaviorTag.Same;
-  //         }
-  //       });
+    it('request-response', done => {
+      interface ResponseMsg {
+        type: 'Response';
+        result: string;
+      }
+      interface RequestMsg {
+        type: 'Request';
+        query: string;
+        replyTo: ActorRef<ResponseMsg | any>;
+      }
 
-  //     const Requestor = (): Behavior<ResponseMsg | { type: 'start' }> =>
-  //       behaviors.receive((ctx, msg) => {
-  //         switch (msg.type) {
-  //           case 'start':
-  //             const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
+      const CookieFabric = () =>
+        behaviors.fromReducer<RequestMsg>((state, msg, ctx) => {
+          switch (msg.type) {
+            case 'Request':
+              ctx.send(msg.replyTo, {
+                type: 'Response',
+                result: `Here are the cookies for [${msg.query}]!`,
+              });
+              return state;
+            default:
+              return state;
+          }
+        }, undefined);
 
-  //             ctx.send(cookieFabric, {
-  //               type: 'Request',
-  //               query: 'my query',
-  //               replyTo: ctx.self,
-  //             });
+      const Requestor = () =>
+        behaviors.fromReducer<ResponseMsg | { type: 'start' }>(
+          (state, msg, ctx) => {
+            switch (msg.type) {
+              case 'start':
+                const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
 
-  //             return BehaviorTag.Same;
-  //           case 'Response':
-  //             ctx.log(`Got a response: ${msg.result}`);
-  //             console.log(sys.logs);
+                ctx.send(cookieFabric, {
+                  type: 'Request',
+                  query: 'my query',
+                  replyTo: ctx.self,
+                });
 
-  //             const participants: Set<ActorRef<any>> = new Set();
+                return state;
+              case 'Response':
+                ctx.log(`Got a response: ${msg.result}`);
+                console.log(sys.logs);
 
-  //             sys.logs.map(log => {
-  //               if ('log' in log) {
-  //                 participants.add(log.ref);
-  //               } else {
-  //                 participants.add(log.from);
-  //                 participants.add(log.to);
-  //               }
-  //             });
+                const participants: Set<ActorRef<any>> = new Set();
 
-  //             const parr = Array.from(participants);
+                sys.logs.map(log => {
+                  if ('log' in log) {
+                    participants.add(log.ref);
+                  } else {
+                    participants.add(log.from);
+                    participants.add(log.to);
+                  }
+                });
 
-  //             const seqDiagram =
-  //               `sequenceDiagram\n` +
-  //               parr
-  //                 .map((value, index) => {
-  //                   return `  participant ${index} as ${value.name}`;
-  //                 })
-  //                 .join('\n') +
-  //               '\n' +
-  //               sys.logs
-  //                 .map(log => {
-  //                   if ('log' in log) {
-  //                     return `  Note right of ${parr.indexOf(log.ref)}: ${
-  //                       log.log
-  //                     }`;
-  //                   }
+                const parr = Array.from(participants);
 
-  //                   const from = parr.indexOf(log.from);
-  //                   const to = parr.indexOf(log.to);
+                const seqDiagram =
+                  `sequenceDiagram\n` +
+                  parr
+                    .map((value, index) => {
+                      return `  participant ${index} as ${value.name}`;
+                    })
+                    .join('\n') +
+                  '\n' +
+                  sys.logs
+                    .map(log => {
+                      if ('log' in log) {
+                        return `  Note right of ${parr.indexOf(log.ref)}: ${
+                          log.log
+                        }`;
+                      }
 
-  //                   return `  ${from}->>${to}: '${JSON.stringify(
-  //                     log.message,
-  //                     (key, value) => {
-  //                       if (value instanceof ActorRef) {
-  //                         return value.name;
-  //                       }
-  //                       return value;
-  //                     }
-  //                   )}'`;
-  //                 })
-  //                 .join('\n');
+                      const from = parr.indexOf(log.from);
+                      const to = parr.indexOf(log.to);
 
-  //             console.log(seqDiagram);
-  //             done();
-  //             return BehaviorTag.Same;
-  //           default:
-  //             return BehaviorTag.Same;
-  //         }
-  //       });
+                      return `  ${from}->>${to}: '${JSON.stringify(
+                        log.message,
+                        (_key, value) => {
+                          if (value instanceof ActorRef) {
+                            return value.name;
+                          }
+                          return value;
+                        }
+                      )}'`;
+                    })
+                    .join('\n');
 
-  //     const sys = createSystem(Requestor(), 'test');
+                console.log(seqDiagram);
+                done();
+                return state;
+              default:
+                return state;
+            }
+          },
+          undefined
+        );
 
-  //     sys.send({ type: 'start' });
-  //   });
+      const sys = createSystem(Requestor(), 'test');
 
-  // it('request-response with ask between two actors', (done) => {
-  //   // object Hal {
-  //   //   sealed trait Command
-  //   //   case class OpenThePodBayDoorsPlease(replyTo: ActorRef[Response]) extends Command
-  //   //   case class Response(message: String)
+      sys.send({ type: 'start' });
+    });
 
-  //   //   def apply(): Behaviors.Receive[Hal.Command] =
-  //   //     Behaviors.receiveMessage[Command] {
-  //   //       case OpenThePodBayDoorsPlease(replyTo) =>
-  //   //         replyTo ! Response("I'm sorry, Dave. I'm afraid I can't do that.")
-  //   //         Behaviors.same
-  //   //     }
-  //   // }
+    // it('request-response with ask between two actors', (done) => {
+    //   // object Hal {
+    //   //   sealed trait Command
+    //   //   case class OpenThePodBayDoorsPlease(replyTo: ActorRef[Response]) extends Command
+    //   //   case class Response(message: String)
 
-  //   interface HalResponse {
-  //     type: 'HalResponse';
-  //     message: string;
-  //   }
+    //   //   def apply(): Behaviors.Receive[Hal.Command] =
+    //   //     Behaviors.receiveMessage[Command] {
+    //   //       case OpenThePodBayDoorsPlease(replyTo) =>
+    //   //         replyTo ! Response("I'm sorry, Dave. I'm afraid I can't do that.")
+    //   //         Behaviors.same
+    //   //     }
+    //   // }
 
-  //   interface OpenThePodBayDoorsPlease {
-  //     type: 'OpenThePodBayDoorsPlease';
-  //     replyTo: ActorRef<HalResponse>;
-  //   }
+    //   interface HalResponse {
+    //     type: 'HalResponse';
+    //     message: string;
+    //   }
 
-  //   const Hal = () =>
-  //     behaviors.receive<OpenThePodBayDoorsPlease>((ctx, msg) => {
-  //       switch (msg.type) {
-  //         case 'OpenThePodBayDoorsPlease':
-  //           msg.replyTo.send({
-  //             type: 'HalResponse',
-  //             message: "I'm sorry, Dave. I'm afraid I can't do that.",
-  //           });
-  //           return BehaviorTag.Same;
-  //       }
-  //     });
-  // });
+    //   interface OpenThePodBayDoorsPlease {
+    //     type: 'OpenThePodBayDoorsPlease';
+    //     replyTo: ActorRef<HalResponse>;
+    //   }
+
+    //   const Hal = () =>
+    //     behaviors.receive<OpenThePodBayDoorsPlease>((ctx, msg) => {
+    //       switch (msg.type) {
+    //         case 'OpenThePodBayDoorsPlease':
+    //           msg.replyTo.send({
+    //             type: 'HalResponse',
+    //             message: "I'm sorry, Dave. I'm afraid I can't do that.",
+    //           });
+    //           return BehaviorTag.Same;
+    //       }
+    //     });
+    // });
+  });
 });
