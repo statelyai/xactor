@@ -166,27 +166,31 @@ export function fromReducer<T, TState = any>(
   initial: TState
 ): Misbehavior<T, TState> {
   return [
-    (state, msg, ctx) => {
+    (taggedState, msg, ctx) => {
+      const [state, tag] = taggedState;
       const nextState = reducer(state, msg, ctx);
 
-      if (isTaggedState(nextState)) {
-        const [, tag] = nextState;
+      const nextTaggedState = isTaggedState(nextState)
+        ? nextState
+        : ([nextState, tag] as TaggedState<TState>);
 
-        if (tag === MisbehaviorTag.Stopped) {
-          console.log('sending ie');
-          ctx.children.forEach(child => {
-            child.send({ type: ActorSignalType.PostStop });
-          });
-        }
-
-        return nextState;
-      }
-
-      return [nextState, MisbehaviorTag.Default];
+      return nextTaggedState;
     },
-    initial,
+    [initial, MisbehaviorTag.Setup],
   ];
 }
+
+// export function withSetup<T, TState = any>(
+//   setup: (state: TState, actorContext: ActorContext<T>) => TState,
+//   reducer: BehaviorReducer<TState, T>,
+//   initial: TState
+// ): Misbehavior<T, TState> {
+//   return [
+//     (state, msg, ctx) => {
+
+//     }
+//   ]
+// }
 
 export function fromReceive<T>(
   fn?: (ctx: ActorContext<T>, msg: T) => void,
@@ -202,6 +206,6 @@ export function fromReceive<T>(
       fn?.(ctx, msg);
       return [undefined, MisbehaviorTag.Default];
     },
-    undefined,
+    [undefined, MisbehaviorTag.Setup],
   ];
 }

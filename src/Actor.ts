@@ -4,6 +4,7 @@ import {
   ActorSignalType,
   Misbehavior,
   MisbehaviorTag,
+  TaggedState,
 } from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
@@ -19,7 +20,7 @@ export class Actor<T> {
   private mailbox: T[] = [];
   private status: ActorRefStatus = ActorRefStatus.Idle;
   private reducer: Misbehavior<T>[0];
-  private state: any;
+  private taggedState: TaggedState<any>;
 
   // same as `watching` in Scala ActorRef
   private topics = {
@@ -32,7 +33,7 @@ export class Actor<T> {
     ref: ActorRef<T>,
     private system: ActorSystem<any>
   ) {
-    [this.reducer, this.state] = behavior;
+    [this.reducer, this.taggedState] = behavior;
     const logger = this.system.logger(ref);
 
     this.actorContext = {
@@ -73,8 +74,8 @@ export class Actor<T> {
     };
 
     // start immediately?
-    [this.state] = this.reducer(
-      this.state,
+    this.taggedState = this.reducer(
+      this.taggedState,
       { type: ActorSignalType.Start },
       this.actorContext
     );
@@ -131,17 +132,29 @@ export class Actor<T> {
       return;
     }
 
-    const [state] = this.reducer(this.state, signal, this.actorContext);
+    const [state] = this.reducer(this.taggedState, signal, this.actorContext);
 
-    this.state = state;
+    this.taggedState = state;
   }
   private process(message: T): void {
+    // if (this.taggedState[1] === MisbehaviorTag.Stopped) {
+    //   console.warn(
+    //     `Attempting to send message to stopped actor ${this.name}`,
+    //     message
+    //   );
+    //   return;
+    // }
+
     console.log('processing message', message);
     this.status = ActorRefStatus.Processing;
 
-    const [state, tag] = this.reducer(this.state, message, this.actorContext);
+    const [state, tag] = this.reducer(
+      this.taggedState,
+      message,
+      this.actorContext
+    );
 
-    this.state = state;
+    this.taggedState = [state, tag];
 
     if (tag === MisbehaviorTag.Stopped) {
       this.stop();
@@ -159,6 +172,13 @@ export class Actor<T> {
       this.actorContext.stop(child);
     });
     this.receiveSignal({ type: ActorSignalType.PostStop });
+    console.log('signaling stop to watchers', this.name);
+    this.topics.watchers.forEach(watcher => {
+      watcher.signal({
+        type: ActorSignalType.Terminated,
+        ref: this.actorContext.self,
+      });
+    });
   }
 
   private flush() {

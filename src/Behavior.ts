@@ -47,15 +47,18 @@ export type Behavior<T> = {
 };
 
 export enum MisbehaviorTag {
+  Setup,
   Default,
   Stopped,
 }
 
+export type TaggedState<TState> = [TState, MisbehaviorTag];
+
 export type Misbehavior<T, TState = any> = [
   (
-    state: TState,
+    state: TaggedState<TState>,
     message: T | ActorSignal,
     ctx: ActorContext<T>
-  ) => [TState, MisbehaviorTag],
-  TState
+  ) => TaggedState<TState>,
+  TaggedState<TState>
 ];

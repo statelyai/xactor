@@ -8,9 +8,10 @@ import {
   Logger,
   MisbehaviorTag,
 } from '../src/Behavior';
+import { createSystem } from '../src/ActorSystem';
 
 describe('ActorSystem', () => {
-  it.only('simple test', done => {
+  it('simple test', done => {
     // const rootBehavior: Behavior<any> = {
     //   _tag: BehaviorTag.Default, // TODO: make this default
     //   receive(_, event: any) {
@@ -41,7 +42,7 @@ describe('ActorSystem', () => {
     system.send({ type: 'hey' });
   });
 
-  it.only('First example', done => {
+  it('First example', done => {
     interface Greet {
       whom: string;
       replyTo: ActorRef<Greeted>;
@@ -102,7 +103,7 @@ describe('ActorSystem', () => {
       SayHello,
       { greeter: ActorRef<Greet> | undefined }
     > = [
-      ({ greeter }, message, ctx) => {
+      ([{ greeter }], message, ctx) => {
         if (
           behaviors.isSignal(message) &&
           message.type === ActorSignalType.Start
@@ -127,7 +128,7 @@ describe('ActorSystem', () => {
 
         return [{ greeter }, MisbehaviorTag.Default];
       },
-      { greeter: undefined },
+      [{ greeter: undefined }, MisbehaviorTag.Default],
     ];
 
     // const HelloWorldMain = behaviors.setup<SayHello>((ctx) => {
@@ -154,7 +155,7 @@ describe('ActorSystem', () => {
     }, 1000);
   });
 
-  it.only('more complex example', done => {
+  it('more complex example', done => {
     interface GetSession {
       type: 'GetSession';
       screenName: string;
@@ -330,51 +331,30 @@ describe('ActorSystem', () => {
     // }
 
     // @ts-ignore
-    const Main = (): Misbehavior<any> => {
-      return [
-        (_state, message, context) => {
-          if (
-            behaviors.isSignal(message) &&
-            message.type === ActorSignalType.Start
-          ) {
-            const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
-            const gabblerRef = context.spawn(Gabbler(), 'gabbler');
+    const Main = () =>
+      behaviors.fromReducer((_, message, context) => {
+        if (
+          behaviors.isSignal(message) &&
+          message.type === ActorSignalType.Start
+        ) {
+          const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
+          const gabblerRef = context.spawn(Gabbler(), 'gabbler');
 
-            chatRoom.send({
-              type: 'GetSession',
-              screenName: "ol' Gabbler",
-              replyTo: gabblerRef,
-            });
-          }
-          return [undefined, MisbehaviorTag.Default];
-        },
-        undefined,
-      ];
-      // return behaviors.fromReducer((_, __, context) => {
-      //   const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
-      //   const gabblerRef = context.spawn(Gabbler(), 'gabbler');
-
-      //   // context.watch(gabblerRef); // TODO
-
-      //   console.log('here');
-
-      //   chatRoom.send({
-      //     type: 'GetSession',
-      //     screenName: "ol' Gabbler",
-      //     replyTo: gabblerRef,
-      //   });
-
-      //   return undefined;
-      //   // return BehaviorTag.Same as any;
-      // }, undefined);
-    };
+          chatRoom.send({
+            type: 'GetSession',
+            screenName: "ol' Gabbler",
+            replyTo: gabblerRef,
+          });
+        }
+        return [undefined, MisbehaviorTag.Default];
+      }, undefined);
 
     new ActorSystem(Main(), 'Chat');
 
     // @ts-ignore
   });
 
-  it.only('aggregation example', done => {
+  it('aggregation example', done => {
     interface OrchestratorState {
       entities: Map<string, ActorRef<EntityEvent>>;
       aggregations: {
@@ -526,7 +506,7 @@ describe('ActorSystem', () => {
     });
   });
 
-  it.only('guardian actor should receive messages sent to system', done => {
+  it('guardian actor should receive messages sent to system', done => {
     const HelloWorldMain = behaviors.fromReceive<{ type: 'hello' }>(
       (_, event) => {
         expect(event.type).toEqual('hello');
@@ -542,7 +522,7 @@ describe('ActorSystem', () => {
     system.send({ type: 'hello' });
   });
 
-  it.only('stopping actors', done => {
+  it('stopping actors', done => {
     // https://doc.akka.io/docs/akka/2.6.5/typed/actor-lifecycle.html#stopping-actors
     const stoppedActors: any[] = [];
 
@@ -557,13 +537,22 @@ describe('ActorSystem', () => {
 
     type Command = SpawnJob | GracefulShutdown;
 
+    // const Job = (name: string) =>
+    //   behaviors.fromReceive<Command>(undefined, (ctx, signal) => {
+    //     if (signal.type === ActorSignalType.PostStop) {
+    //       ctx.log(`Worker ${name} stopped`);
+    //       stoppedActors.push(name);
+    //     }
+    //   });
+
     const Job = (name: string) =>
-      behaviors.fromReceive<Command>(undefined, (ctx, signal) => {
+      behaviors.fromReducer<Command>((_, signal, ctx) => {
+        ctx.log(signal);
         if (signal.type === ActorSignalType.PostStop) {
           ctx.log(`Worker ${name} stopped`);
           stoppedActors.push(name);
         }
-      });
+      }, undefined);
 
     // const Job = (name: string): Behavior<Command> => {
     //   return behaviors.receiveSignal<Command>((context, signal) => {
@@ -647,61 +636,98 @@ describe('ActorSystem', () => {
     }, 100);
   });
 
-  //   it('watching actors', done => {
-  //     interface SpawnJob {
-  //       type: 'SpawnJob';
-  //       jobName: string;
-  //     }
+  it('watching actors', done => {
+    interface SpawnJob {
+      type: 'SpawnJob';
+      jobName: string;
+    }
 
-  //     const Job = (name: string): Behavior<{ type: 'finished' }> =>
-  //       behaviors.setup(ctx => {
-  //         setTimeout(() => {
-  //           ctx.self.send({ type: 'finished' });
-  //         }, 100);
+    // const Job = (name: string): Behavior<{ type: 'finished' }> =>
+    //   behaviors.setup(ctx => {
+    //     setTimeout(() => {
+    //       ctx.self.send({ type: 'finished' });
+    //     }, 100);
 
-  //         ctx.log(`Hi I am job ${name}`);
-  //         return behaviors.receive((ctx, msg) => {
-  //           if (msg.type === 'finished') {
-  //             return behaviors.stopped(() => {});
-  //           }
-  //           return BehaviorTag.Same;
-  //         });
-  //       });
+    //     ctx.log(`Hi I am job ${name}`);
+    //     return behaviors.receive((ctx, msg) => {
+    //       if (msg.type === 'finished') {
+    //         return behaviors.stopped(() => {});
+    //       }
+    //       return BehaviorTag.Same;
+    //     });
+    //   });
 
-  //     const MasterControlProgram = (): Behavior<SpawnJob> => {
-  //       return behaviors.receive(
-  //         (context, message) => {
-  //           switch (message.type) {
-  //             case 'SpawnJob':
-  //               context.log(`Spawning job ${message.jobName}!`);
-  //               const job = context.spawn(Job(message.jobName), message.jobName);
-  //               context.watch(job);
-  //               return BehaviorTag.Same;
-  //             default:
-  //               return BehaviorTag.Same;
-  //           }
-  //         },
-  //         (context, signal) => {
-  //           switch (signal.type) {
-  //             case ActorSignalType.Terminated:
-  //               context.log(`Job stopped: ${signal.ref.name}`);
-  //               expect(signal.ref.name).toEqual('job1');
-  //               done();
-  //               return BehaviorTag.Same;
-  //             default:
-  //               return BehaviorTag.Same;
-  //           }
-  //         }
-  //       );
-  //     };
+    const Job = (name: string) =>
+      behaviors.fromReducer<{ type: 'finished' }, 'one' | 'two'>(
+        (state, event, ctx) => {
+          ctx.log(state);
+          if (state === 'one') {
+            setTimeout(() => {
+              console.log('send?');
+              ctx.self.send({ type: 'finished' });
+            }, 100);
 
-  //     const sys = createSystem(MasterControlProgram(), 'master');
+            ctx.log(`Hi I am job ${name}`);
 
-  //     sys.send({
-  //       type: 'SpawnJob',
-  //       jobName: 'job1',
-  //     });
-  //   });
+            return 'two';
+          }
+
+          if (event.type === 'finished') {
+            return [state, MisbehaviorTag.Stopped];
+          }
+
+          return state;
+        },
+        'one'
+      );
+
+    // const Job = (name: string): Behavior<{ type: 'finished' }> =>
+    //   behaviors.setup(ctx => {
+    //     setTimeout(() => {
+    //       ctx.self.send({ type: 'finished' });
+    //     }, 100);
+
+    //     ctx.log(`Hi I am job ${name}`);
+    //     return behaviors.receive((ctx, msg) => {
+    //       if (msg.type === 'finished') {
+    //         return behaviors.stopped(() => {});
+    //       }
+    //       return BehaviorTag.Same;
+    //     });
+    //   });
+
+    const MasterControlProgram = () =>
+      behaviors.fromReducer<SpawnJob>((state, message, context) => {
+        if (behaviors.isSignal(message)) {
+          switch (message.type) {
+            case ActorSignalType.Terminated:
+              context.log(`Job stopped: ${message.ref.name}`);
+              expect(message.ref.name).toEqual('job1');
+              done();
+              return state;
+            default:
+              return state;
+          }
+        }
+
+        switch (message.type) {
+          case 'SpawnJob':
+            context.log(`Spawning job ${message.jobName}!`);
+            const job = context.spawn(Job(message.jobName), message.jobName);
+            context.watch(job);
+            return state;
+          default:
+            return state;
+        }
+      }, undefined);
+
+    const sys = createSystem(MasterControlProgram(), 'master');
+
+    sys.send({
+      type: 'SpawnJob',
+      jobName: 'job1',
+    });
+  }, 1000);
   // });
 
   // describe('interaction patterns', () => {
