@@ -13,15 +13,8 @@ export interface ActorContext<T> {
   subscribeTo: (topic: 'watchers', subscriber: ActorRef<any>) => void;
 
   // spawnAnonymous<U>(behavior: Behavior<U>): ActorRef<U>;
-  spawn<U>(behavior: Misbehavior<U>, name: string): ActorRef<U>;
+  spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U>;
   stop<U>(child: ActorRef<U>): void;
-}
-
-export enum BehaviorTag {
-  Default,
-  Same,
-  Stopped,
-  Topic,
 }
 
 export enum ActorSignalType {
@@ -29,23 +22,27 @@ export enum ActorSignalType {
   PostStop,
   Watch,
   Terminated,
+  Subscribe,
+  Emit,
 }
 
 export type ActorSignal =
   | { type: ActorSignalType.Start }
   | { type: ActorSignalType.PostStop }
   | { type: ActorSignalType.Watch; ref: ActorRef<any> }
-  | { type: ActorSignalType.Terminated; ref: ActorRef<any> };
+  | { type: ActorSignalType.Terminated; ref: ActorRef<any> }
+  | { type: ActorSignalType.Subscribe; ref: ActorRef<any> }
+  | { type: ActorSignalType.Emit; value: any };
 
-export enum MisbehaviorTag {
+export enum BehaviorTag {
   Setup,
   Default,
   Stopped,
 }
 
-export type TaggedState<TState> = [TState, MisbehaviorTag];
+export type TaggedState<TState> = [TState, BehaviorTag];
 
-export type Misbehavior<T, TState = any> = [
+export type Behavior<T, TState = any> = [
   (
     state: TaggedState<TState>,
     message: T | ActorSignal,

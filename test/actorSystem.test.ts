@@ -4,15 +4,14 @@ import { ActorRef } from '../src/ActorRef';
 import {
   BehaviorTag,
   ActorSignalType,
-  Misbehavior,
+  Behavior,
   Logger,
-  MisbehaviorTag,
 } from '../src/Behavior';
 import { createSystem } from '../src/ActorSystem';
 
 describe('ActorSystem', () => {
   it('simple test', done => {
-    const rootBehavior = behaviors.fromReducer((_, msg) => {
+    const rootBehavior = behaviors.createBehavior((_, msg) => {
       if (behaviors.isSignal(msg)) return undefined;
       console.log('msg recd', msg);
       expect(msg).toEqual({ type: 'hey' });
@@ -39,7 +38,7 @@ describe('ActorSystem', () => {
       name: string;
     }
 
-    const HelloWorld = behaviors.fromReducer<Greet>((_, message, ctx) => {
+    const HelloWorld = behaviors.createBehavior<Greet>((_, message, ctx) => {
       if (behaviors.isSignal(message)) return _;
 
       ctx.log(`Hello ${message.whom}!`);
@@ -53,11 +52,8 @@ describe('ActorSystem', () => {
     }, undefined);
 
     const HelloWorldBot = (max: number) => {
-      const bot = (
-        greetingCounter: number,
-        max: number
-      ): Misbehavior<Greeted> => {
-        return behaviors.fromReducer(
+      const bot = (greetingCounter: number, max: number): Behavior<Greeted> => {
+        return behaviors.createBehavior(
           (state, message, ctx) => {
             if (behaviors.isSignal(message)) return state;
 
@@ -82,7 +78,7 @@ describe('ActorSystem', () => {
       return bot(0, max);
     };
 
-    const HelloWorldMain: Misbehavior<
+    const HelloWorldMain: Behavior<
       SayHello,
       { greeter: ActorRef<Greet> | undefined }
     > = [
@@ -93,7 +89,7 @@ describe('ActorSystem', () => {
         ) {
           return [
             { greeter: ctx.spawn(HelloWorld, 'greeter') },
-            MisbehaviorTag.Default,
+            BehaviorTag.Default,
           ];
         }
 
@@ -109,9 +105,9 @@ describe('ActorSystem', () => {
           });
         }
 
-        return [{ greeter }, MisbehaviorTag.Default];
+        return [{ greeter }, BehaviorTag.Default];
       },
-      [{ greeter: undefined }, MisbehaviorTag.Default],
+      [{ greeter: undefined }, BehaviorTag.Default],
     ];
 
     const system = new ActorSystem(HelloWorldMain, 'hello');
@@ -169,14 +165,14 @@ describe('ActorSystem', () => {
       message: string;
     }
 
-    const ChatRoom = (): Misbehavior<RoomCommand> => chatRoom([]);
+    const ChatRoom = (): Behavior<RoomCommand> => chatRoom([]);
 
     const session = (
       room: ActorRef<PublishSessionMessage>,
       screenName: string,
       client: ActorRef<SessionEvent>
-    ): Misbehavior<SessionCommand> => {
-      return behaviors.fromReducer((_, message, _ctx) => {
+    ): Behavior<SessionCommand> => {
+      return behaviors.createBehavior((_, message, _ctx) => {
         switch (message.type) {
           case 'PostMessage':
             room.send({
@@ -196,8 +192,8 @@ describe('ActorSystem', () => {
 
     const chatRoom = (
       sessions: ActorRef<SessionCommand>[]
-    ): Misbehavior<RoomCommand> => {
-      return behaviors.fromReducer(
+    ): Behavior<RoomCommand> => {
+      return behaviors.createBehavior(
         (state, message, context) => {
           switch (message.type) {
             case 'GetSession':
@@ -233,8 +229,8 @@ describe('ActorSystem', () => {
       );
     };
 
-    const Gabbler = (): Misbehavior<SessionEvent> => {
-      return behaviors.fromReducer((_, message, context) => {
+    const Gabbler = (): Behavior<SessionEvent> => {
+      return behaviors.createBehavior((_, message, context) => {
         switch (message.type) {
           case 'SessionGranted':
             message.handle.send({
@@ -256,7 +252,7 @@ describe('ActorSystem', () => {
     };
 
     const Main = () =>
-      behaviors.fromReducer((_, message, context) => {
+      behaviors.createBehavior((_, message, context) => {
         if (
           behaviors.isSignal(message) &&
           message.type === ActorSignalType.Start
@@ -270,7 +266,7 @@ describe('ActorSystem', () => {
             replyTo: gabblerRef,
           });
         }
-        return [undefined, MisbehaviorTag.Default];
+        return [undefined, BehaviorTag.Default];
       }, undefined);
 
     new ActorSystem(Main(), 'Chat');
@@ -342,7 +338,7 @@ describe('ActorSystem', () => {
         let entity = state.entities.get(event.entityId);
         if (!entity) {
           entity = ctx.spawn(
-            behaviors.fromReducer(entityReducer, { count: 0 }),
+            behaviors.createBehavior(entityReducer, { count: 0 }),
             event.entityId
           );
           state.entities.set(event.entityId, entity);
@@ -374,7 +370,7 @@ describe('ActorSystem', () => {
     };
 
     const system = new ActorSystem(
-      behaviors.fromReducer(orchestratorReducer, {
+      behaviors.createBehavior(orchestratorReducer, {
         entities: new Map(),
         aggregations: {},
       }),
@@ -429,14 +425,13 @@ describe('ActorSystem', () => {
   });
 
   it('guardian actor should receive messages sent to system', done => {
-    const HelloWorldMain = behaviors.fromReceive<{ type: 'hello' }>(
+    const HelloWorldMain = behaviors.createBehavior<{ type: 'hello' }>(
       (_, event) => {
-        expect(event.type).toEqual('hello');
-
-        done();
-
-        return BehaviorTag.Same;
-      }
+        if (event.type === 'hello') {
+          done();
+        }
+      },
+      undefined
     );
 
     const system = new ActorSystem(HelloWorldMain, 'hello');
@@ -460,7 +455,7 @@ describe('ActorSystem', () => {
     type Command = SpawnJob | GracefulShutdown;
 
     const Job = (name: string) =>
-      behaviors.fromReducer<Command>((_, signal, ctx) => {
+      behaviors.createBehavior<Command>((_, signal, ctx) => {
         ctx.log(signal);
         if (signal.type === ActorSignalType.PostStop) {
           ctx.log(`Worker ${name} stopped`);
@@ -469,7 +464,7 @@ describe('ActorSystem', () => {
       }, undefined);
 
     const MasterControlProgram = () =>
-      behaviors.fromReducer<Command>((state, message, context) => {
+      behaviors.createBehavior<Command>((state, message, context) => {
         const cleanup = (log: Logger): void => {
           log(`Cleaning up!`);
         };
@@ -493,7 +488,7 @@ describe('ActorSystem', () => {
             return;
           case 'GracefulShutdown':
             context.log(`Initiating graceful shutdown...`);
-            return [state, MisbehaviorTag.Stopped];
+            return [state, BehaviorTag.Stopped];
         }
       }, undefined);
 
@@ -514,7 +509,7 @@ describe('ActorSystem', () => {
     }
 
     const Job = (name: string) =>
-      behaviors.fromReducer<{ type: 'finished' }, 'one' | 'two'>(
+      behaviors.createBehavior<{ type: 'finished' }, 'one' | 'two'>(
         (state, event, ctx) => {
           ctx.log(state);
           if (state === 'one') {
@@ -529,7 +524,7 @@ describe('ActorSystem', () => {
           }
 
           if (event.type === 'finished') {
-            return [state, MisbehaviorTag.Stopped];
+            return [state, BehaviorTag.Stopped];
           }
 
           return state;
@@ -553,7 +548,7 @@ describe('ActorSystem', () => {
     //   });
 
     const MasterControlProgram = () =>
-      behaviors.fromReducer<SpawnJob>((state, message, context) => {
+      behaviors.createBehavior<SpawnJob>((state, message, context) => {
         if (behaviors.isSignal(message)) {
           switch (message.type) {
             case ActorSignalType.Terminated:
@@ -607,7 +602,7 @@ describe('ActorSystem', () => {
       // };
 
       const Printer = () =>
-        behaviors.fromReducer<PrintMe>((state, msg, ctx) => {
+        behaviors.createBehavior<PrintMe>((state, msg, ctx) => {
           switch (msg.type) {
             case 'PrintMe':
               ctx.log(msg.message);
@@ -636,7 +631,7 @@ describe('ActorSystem', () => {
       }
 
       const CookieFabric = () =>
-        behaviors.fromReducer<RequestMsg>((state, msg, ctx) => {
+        behaviors.createBehavior<RequestMsg>((state, msg, ctx) => {
           switch (msg.type) {
             case 'Request':
               ctx.send(msg.replyTo, {
@@ -650,7 +645,7 @@ describe('ActorSystem', () => {
         }, undefined);
 
       const Requestor = () =>
-        behaviors.fromReducer<ResponseMsg | { type: 'start' }>(
+        behaviors.createBehavior<ResponseMsg | { type: 'start' }>(
           (state, msg, ctx) => {
             switch (msg.type) {
               case 'start':

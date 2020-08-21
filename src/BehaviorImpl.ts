@@ -3,8 +3,7 @@ import {
   BehaviorTag,
   ActorSignal,
   ActorSignalType,
-  Misbehavior,
-  MisbehaviorTag,
+  Behavior,
 } from './Behavior';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -15,7 +14,7 @@ export const isSignal = (msg: any): msg is ActorSignal => {
   );
 };
 
-export type TaggedState<TState> = [TState, MisbehaviorTag];
+export type TaggedState<TState> = [TState, BehaviorTag];
 
 export type BehaviorReducer<TState, TEvent> = (
   state: TState,
@@ -34,14 +33,14 @@ export function isTaggedState<TState>(
 ): state is TaggedState<TState> {
   return (
     Array.isArray(state) &&
-    (state[1] === MisbehaviorTag.Default || state[1] === MisbehaviorTag.Stopped)
+    (state[1] === BehaviorTag.Default || state[1] === BehaviorTag.Stopped)
   );
 }
 
-export function fromReducer<T, TState = any>(
+export function createBehavior<T, TState = any>(
   reducer: BehaviorReducer<TState, T>,
   initial: TState
-): Misbehavior<T, TState> {
+): Behavior<T, TState> {
   return [
     (taggedState, msg, ctx) => {
       const [state, tag] = taggedState;
@@ -53,36 +52,24 @@ export function fromReducer<T, TState = any>(
 
       return nextTaggedState;
     },
-    [initial, MisbehaviorTag.Setup],
+    [initial, BehaviorTag.Setup],
   ];
 }
-
-// export function withSetup<T, TState = any>(
-//   setup: (state: TState, actorContext: ActorContext<T>) => TState,
-//   reducer: BehaviorReducer<TState, T>,
-//   initial: TState
-// ): Misbehavior<T, TState> {
-//   return [
-//     (state, msg, ctx) => {
-
-//     }
-//   ]
-// }
 
 export function fromReceive<T>(
   fn?: (ctx: ActorContext<T>, msg: T) => void,
   signalFn?: (ctx: ActorContext<T>, signal: ActorSignal) => void
-): Misbehavior<T> {
+): Behavior<T> {
   return [
     (_, msg, ctx) => {
       if (isSignal(msg)) {
         signalFn?.(ctx, msg);
-        return [undefined, MisbehaviorTag.Default];
+        return [undefined, BehaviorTag.Default];
       }
 
       fn?.(ctx, msg);
-      return [undefined, MisbehaviorTag.Default];
+      return [undefined, BehaviorTag.Default];
     },
-    [undefined, MisbehaviorTag.Setup],
+    [undefined, BehaviorTag.Setup],
   ];
 }

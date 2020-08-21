@@ -1,7 +1,9 @@
+import { Listener } from './Actor';
 import { ActorRef } from './ActorRef';
-import { Misbehavior } from './Behavior';
+import { Behavior } from './Behavior';
+import { Subscribable } from './types';
 
-export class ActorSystem<T> {
+export class ActorSystem<T> implements Subscribable<any> {
   public settings: any;
   private guardian: ActorRef<any>;
   public logger = (actorRef: ActorRef<any>) => (...args: any[]) => {
@@ -25,15 +27,19 @@ export class ActorSystem<T> {
       }
   > = [];
 
-  constructor(behavior: Misbehavior<T>, public name: string) {
+  constructor(behavior: Behavior<T>, public name: string) {
     this.guardian = new ActorRef(behavior, name, this);
   }
 
   send(message: T) {
     this.guardian.send(message);
   }
+
+  subscribe(listener: Listener<any>) {
+    return this.guardian.subscribe(listener);
+  }
 }
 
-export function createSystem<T>(behavior: Misbehavior<T>, name: string) {
+export function createSystem<T>(behavior: Behavior<T>, name: string) {
   return new ActorSystem<T>(behavior, name);
 }

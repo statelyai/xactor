@@ -3,7 +3,7 @@ import { ActorSystem } from '../src';
 
 describe('behaviors', () => {
   it('Behaviors.Same should result in same behavior', done => {
-    const helloWorldBehavior = behaviors.fromReducer<{ whom: string }>(
+    const helloWorldBehavior = behaviors.createBehavior<{ whom: string }>(
       (_, message) => {
         if (behaviors.isSignal(message)) {
           return undefined;

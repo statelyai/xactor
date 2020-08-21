@@ -2,33 +2,38 @@ import {
   ActorContext,
   ActorSignal,
   ActorSignalType,
-  Misbehavior,
-  MisbehaviorTag,
+  Behavior,
+  BehaviorTag,
   TaggedState,
 } from './Behavior';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from '.';
+import { Subscribable } from './types';
 
 enum ActorRefStatus {
   Idle = 0,
   Processing = 1,
 }
 
-export class Actor<T> {
+export type Listener<T> = (emitted: T) => void;
+
+export class Actor<T> implements Subscribable<any> {
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
   private mailbox: T[] = [];
   private status: ActorRefStatus = ActorRefStatus.Idle;
-  private reducer: Misbehavior<T>[0];
+  private reducer: Behavior<T>[0];
   private taggedState: TaggedState<any>;
 
   // same as `watching` in Scala ActorRef
   private topics = {
     watchers: new Set<ActorRef<any>>(),
+    listeners: new Set<Listener<any>>(),
+    errorListeners: new Set<Listener<any>>(),
   };
 
   constructor(
-    behavior: Misbehavior<T>,
+    behavior: Behavior<T>,
     public name: string,
     ref: ActorRef<T>,
     private system: ActorSystem<any>
@@ -86,40 +91,6 @@ export class Actor<T> {
     // );
   }
 
-  // private resolveBehavior(
-  //   behaviorOrTag: Behavior<T> | BehaviorTag
-  // ): Behavior<T> {
-  //   const behaviorTag = isBehavior(behaviorOrTag)
-  //     ? behaviorOrTag._tag
-  //     : behaviorOrTag;
-
-  //   switch (behaviorTag) {
-  //     case BehaviorTag.Stopped:
-  //       this.actorContext.children.forEach((child) => {
-  //         this.actorContext.stop(child);
-  //       });
-
-  //       this.topics.watchers.forEach((watcher) => {
-  //         watcher.signal({
-  //           type: ActorSignalType.Terminated,
-  //           ref: this.actorContext.self,
-  //         });
-  //       });
-
-  //       const stoppedBehavior =
-  //         (this.behavior.receiveSignal?.(this.actorContext, {
-  //           type: ActorSignalType.PostStop,
-  //         }) as Behavior<T>) || this.behavior;
-
-  //       return stoppedBehavior;
-  //     case BehaviorTag.Default:
-  //       return behaviorOrTag as Behavior<T>;
-  //     case BehaviorTag.Same:
-  //     default:
-  //       return this.behavior;
-  //   }
-  // }
-
   public receive(message: T): void {
     this.mailbox.push(message);
     if (this.status === ActorRefStatus.Idle) {
@@ -137,15 +108,14 @@ export class Actor<T> {
     this.taggedState = state;
   }
   private process(message: T): void {
-    // if (this.taggedState[1] === MisbehaviorTag.Stopped) {
-    //   console.warn(
-    //     `Attempting to send message to stopped actor ${this.name}`,
-    //     message
-    //   );
-    //   return;
-    // }
+    if (this.taggedState[1] === BehaviorTag.Stopped) {
+      console.warn(
+        `Attempting to send message to stopped actor ${this.name}`,
+        message
+      );
+      return;
+    }
 
-    console.log('processing message', message);
     this.status = ActorRefStatus.Processing;
 
     const [state, tag] = this.reducer(
@@ -156,7 +126,11 @@ export class Actor<T> {
 
     this.taggedState = [state, tag];
 
-    if (tag === MisbehaviorTag.Stopped) {
+    this.topics.listeners.forEach(listener => {
+      listener(state);
+    });
+
+    if (tag === BehaviorTag.Stopped) {
       this.stop();
     }
 
@@ -188,9 +162,21 @@ export class Actor<T> {
     }
   }
 
-  private spawn<U>(behavior: Misbehavior<U>, name: string): ActorRef<U> {
+  private spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U> {
     const child = new ActorRef<U>(behavior, name, this.system);
     this.children.add(child);
     return child;
+  }
+
+  public subscribe(listener: Listener<any>, errorListener: Listener<any>) {
+    this.topics.listeners.add(listener);
+    this.topics.errorListeners.add(errorListener);
+
+    return {
+      unsubscribe: () => {
+        this.topics.listeners.delete(listener);
+        this.topics.errorListeners.delete(errorListener);
+      },
+    };
   }
 }
