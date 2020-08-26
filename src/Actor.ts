@@ -5,10 +5,10 @@ import {
   Behavior,
   BehaviorTag,
   TaggedState,
-} from './Behavior';
+  Subscribable,
+} from './types';
 import { ActorRef } from './ActorRef';
-import { ActorSystem } from '.';
-import { Subscribable } from './types';
+import { ActorSystem } from './ActorSystem';
 
 enum ActorRefStatus {
   Idle = 0,

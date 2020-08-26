@@ -1,7 +1,6 @@
 import { Listener } from './Actor';
 import { ActorRef } from './ActorRef';
-import { Behavior } from './Behavior';
-import { Subscribable } from './types';
+import { Behavior, Subscribable } from './types';
 
 export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
   public settings: any;

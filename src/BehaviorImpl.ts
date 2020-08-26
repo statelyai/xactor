@@ -6,7 +6,8 @@ import {
   ActorSignalType,
   Behavior,
   TaggedState,
-} from './Behavior';
+  BehaviorReducer,
+} from './types';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
   return (
@@ -15,12 +16,6 @@ export const isSignal = (msg: any): msg is ActorSignal => {
     Object.values(ActorSignalType).includes(msg.type)
   );
 };
-
-export type BehaviorReducer<TState, TEvent> = (
-  state: TState,
-  event: TEvent | ActorSignal,
-  actorCtx: ActorContext<TEvent>
-) => TState | TaggedState<TState>;
 
 export function isTaggedState<TState>(
   state: TState | TaggedState<TState>
@@ -53,7 +48,7 @@ export function createBehavior<T, TState = any>(
         ? nextState
         : {
             state: nextState,
-            $$tag: tag,
+            $$tag: tag === BehaviorTag.Setup ? BehaviorTag.Default : tag,
             effects: [],
           };
 
@@ -61,6 +56,15 @@ export function createBehavior<T, TState = any>(
     },
     { state: initial, $$tag: BehaviorTag.Setup, effects: [] },
   ];
+}
+
+export function createStatelessBehavior<T>(
+  reducer: BehaviorReducer<undefined, T>
+): Behavior<T, undefined> {
+  return createBehavior((_, msg, ctx) => {
+    reducer(undefined, msg, ctx);
+    return undefined;
+  }, undefined);
 }
 
 export function createSetupBehavior<T, TState = any>(

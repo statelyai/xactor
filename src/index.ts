@@ -1,4 +1,10 @@
 export { ActorSystem, createSystem } from './ActorSystem';
 export { ActorRef } from './ActorRef';
-import * as behaviors from './BehaviorImpl';
-export { behaviors };
+export {
+  createBehavior,
+  createSetupBehavior,
+  createStatelessBehavior,
+  isSignal,
+  stopped,
+  createTimeout,
+} from './BehaviorImpl';

@@ -1,12 +1,20 @@
-import * as behaviors from '../src/BehaviorImpl';
-import { ActorRef } from '../src/ActorRef';
-import { ActorSignalType, Behavior, Logger } from '../src/Behavior';
-import { createSystem } from '../src/ActorSystem';
+// import * as behaviors from '../src/BehaviorImpl';
+// import { ActorSignalType, Logger } from '../src/Behavior';
+import {
+  createBehavior,
+  isSignal,
+  createSetupBehavior,
+  stopped,
+  createTimeout,
+  createSystem,
+  ActorRef,
+} from '../src';
+import { ActorSignalType, Logger, BehaviorReducer } from '../src/types';
 
 describe('ActorSystem', () => {
   it('simple test', done => {
-    const rootBehavior = behaviors.createBehavior<any, boolean>((_, msg) => {
-      if (behaviors.isSignal(msg)) return false;
+    const rootBehavior = createBehavior<any, boolean>((_, msg) => {
+      if (isSignal(msg)) return false;
       expect(msg).toEqual({ type: 'hey' });
       return true;
     }, false);
@@ -36,8 +44,8 @@ describe('ActorSystem', () => {
       name: string;
     }
 
-    const HelloWorld = behaviors.createBehavior<Greet>((_, message, ctx) => {
-      if (behaviors.isSignal(message)) return _;
+    const HelloWorld = createBehavior<Greet>((_, message, ctx) => {
+      if (isSignal(message)) return _;
 
       ctx.log(`Hello ${message.whom}!`);
 
@@ -50,10 +58,10 @@ describe('ActorSystem', () => {
     }, undefined);
 
     const HelloWorldBot = (max: number) => {
-      const bot = (greetingCounter: number, max: number): Behavior<Greeted> => {
-        return behaviors.createBehavior(
+      const bot = (greetingCounter: number, max: number) => {
+        return createBehavior<Greeted>(
           (state, message, ctx) => {
-            if (behaviors.isSignal(message)) return state;
+            if (isSignal(message)) return state;
 
             const n = state.n + 1;
 
@@ -76,7 +84,7 @@ describe('ActorSystem', () => {
       return bot(0, max);
     };
 
-    const HelloWorldMain = behaviors.createSetupBehavior<
+    const HelloWorldMain = createSetupBehavior<
       SayHello,
       { greeter: ActorRef<Greet> | undefined }
     >(
@@ -158,14 +166,14 @@ describe('ActorSystem', () => {
       message: string;
     }
 
-    const ChatRoom = (): Behavior<RoomCommand> => chatRoom([]);
+    const ChatRoom = () => chatRoom([]);
 
     const session = (
       room: ActorRef<PublishSessionMessage>,
       screenName: string,
       client: ActorRef<SessionEvent>
-    ): Behavior<SessionCommand> => {
-      return behaviors.createBehavior((_, message, _ctx) => {
+    ) => {
+      return createBehavior<SessionCommand>((_, message, _ctx) => {
         switch (message.type) {
           case 'PostMessage':
             room.send({
@@ -183,10 +191,11 @@ describe('ActorSystem', () => {
       }, undefined);
     };
 
-    const chatRoom = (
-      sessions: ActorRef<SessionCommand>[]
-    ): Behavior<RoomCommand> => {
-      return behaviors.createBehavior(
+    const chatRoom = (sessions: ActorRef<SessionCommand>[]) => {
+      return createBehavior<
+        RoomCommand,
+        { sessions: ActorRef<SessionCommand>[] }
+      >(
         (state, message, context) => {
           switch (message.type) {
             case 'GetSession':
@@ -222,8 +231,8 @@ describe('ActorSystem', () => {
       );
     };
 
-    const Gabbler = (): Behavior<SessionEvent> => {
-      return behaviors.createBehavior((_, message, context) => {
+    const Gabbler = () => {
+      return createBehavior<SessionEvent>((_, message, context) => {
         switch (message.type) {
           case 'SessionGranted':
             message.handle.send({
@@ -245,7 +254,7 @@ describe('ActorSystem', () => {
     };
 
     const Main = () =>
-      behaviors.createSetupBehavior(
+      createSetupBehavior(
         (_, context) => {
           const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
           const gabblerRef = context.spawn(Gabbler(), 'gabbler');
@@ -300,7 +309,7 @@ describe('ActorSystem', () => {
       count: number;
     }
 
-    const entityReducer: behaviors.BehaviorReducer<EntityState, EntityEvent> = (
+    const entityReducer: BehaviorReducer<EntityState, EntityEvent> = (
       state,
       event,
       ctx
@@ -321,7 +330,7 @@ describe('ActorSystem', () => {
       return state;
     };
 
-    const orchestratorReducer: behaviors.BehaviorReducer<
+    const orchestratorReducer: BehaviorReducer<
       OrchestratorState,
       OrchestratorEvent
     > = (state, event, ctx) => {
@@ -330,7 +339,7 @@ describe('ActorSystem', () => {
         let entity = state.entities.get(event.entityId);
         if (!entity) {
           entity = ctx.spawn(
-            behaviors.createBehavior(entityReducer, { count: 0 }),
+            createBehavior(entityReducer, { count: 0 }),
             event.entityId
           );
           state.entities.set(event.entityId, entity);
@@ -362,7 +371,7 @@ describe('ActorSystem', () => {
     };
 
     const system = createSystem(
-      behaviors.createBehavior(orchestratorReducer, {
+      createBehavior(orchestratorReducer, {
         entities: new Map(),
         aggregations: {},
       }),
@@ -417,14 +426,11 @@ describe('ActorSystem', () => {
   });
 
   it('guardian actor should receive messages sent to system', done => {
-    const HelloWorldMain = behaviors.createBehavior<{ type: 'hello' }>(
-      (_, event) => {
-        if (event.type === 'hello') {
-          done();
-        }
-      },
-      undefined
-    );
+    const HelloWorldMain = createBehavior<{ type: 'hello' }>((_, event) => {
+      if (event.type === 'hello') {
+        done();
+      }
+    }, undefined);
 
     const system = createSystem(HelloWorldMain, 'hello');
 
@@ -447,7 +453,7 @@ describe('ActorSystem', () => {
     type Command = SpawnJob | GracefulShutdown;
 
     const Job = (name: string) =>
-      behaviors.createBehavior<Command>((_, signal, ctx) => {
+      createBehavior<Command>((_, signal, ctx) => {
         ctx.log(signal);
         if (signal.type === ActorSignalType.PostStop) {
           ctx.log(`Worker ${name} stopped`);
@@ -456,12 +462,12 @@ describe('ActorSystem', () => {
       }, undefined);
 
     const MasterControlProgram = () =>
-      behaviors.createBehavior<Command>((state, message, context) => {
+      createBehavior<Command>((state, message, context) => {
         const cleanup = (log: Logger): void => {
           log(`Cleaning up!`);
         };
 
-        if (behaviors.isSignal(message)) {
+        if (isSignal(message)) {
           if (message.type === ActorSignalType.PostStop) {
             context.log(`Master Control Program stopped`);
             cleanup(context.log);
@@ -480,7 +486,7 @@ describe('ActorSystem', () => {
             return;
           case 'GracefulShutdown':
             context.log(`Initiating graceful shutdown...`);
-            return behaviors.stopped(state);
+            return stopped(state);
         }
       }, undefined);
 
@@ -501,10 +507,10 @@ describe('ActorSystem', () => {
     }
 
     const Job = (name: string) =>
-      behaviors.createSetupBehavior<{ type: 'finished' }, undefined>(
+      createSetupBehavior<{ type: 'finished' }, undefined>(
         (_, ctx) => {
           ctx.spawn(
-            behaviors.createTimeout(
+            createTimeout(
               ctx.self,
               ref => {
                 ref.send({ type: 'finished' });
@@ -519,7 +525,7 @@ describe('ActorSystem', () => {
         },
         (state, event) => {
           if (event.type === 'finished') {
-            return behaviors.stopped(state);
+            return stopped(state);
           }
 
           return state;
@@ -528,8 +534,8 @@ describe('ActorSystem', () => {
       );
 
     const MasterControlProgram = () =>
-      behaviors.createBehavior<SpawnJob>((state, message, context) => {
-        if (behaviors.isSignal(message)) {
+      createBehavior<SpawnJob>((state, message, context) => {
+        if (isSignal(message)) {
           switch (message.type) {
             case ActorSignalType.Terminated:
               context.log(`Job stopped: ${message.ref.name}`);
@@ -568,7 +574,7 @@ describe('ActorSystem', () => {
       }
 
       // const Printer = (): Behavior<PrintMe> => {
-      //   return behaviors.receive((ctx, msg) => {
+      //   return receive((ctx, msg) => {
       //     switch (msg.type) {
       //       case 'PrintMe':
       //         ctx.log(msg.message);
@@ -581,7 +587,7 @@ describe('ActorSystem', () => {
       // };
 
       const Printer = () =>
-        behaviors.createBehavior<PrintMe>((state, msg, ctx) => {
+        createBehavior<PrintMe>((state, msg, ctx) => {
           switch (msg.type) {
             case 'PrintMe':
               ctx.log(msg.message);
@@ -610,7 +616,7 @@ describe('ActorSystem', () => {
       }
 
       const CookieFabric = () =>
-        behaviors.createBehavior<RequestMsg>((state, msg, ctx) => {
+        createBehavior<RequestMsg>((state, msg, ctx) => {
           switch (msg.type) {
             case 'Request':
               ctx.send(msg.replyTo, {
@@ -624,76 +630,73 @@ describe('ActorSystem', () => {
         }, undefined);
 
       const Requestor = () =>
-        behaviors.createBehavior<ResponseMsg | { type: 'start' }>(
-          (state, msg, ctx) => {
-            switch (msg.type) {
-              case 'start':
-                const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
+        createBehavior<ResponseMsg | { type: 'start' }>((state, msg, ctx) => {
+          switch (msg.type) {
+            case 'start':
+              const cookieFabric = ctx.spawn(CookieFabric(), 'cookie-fabric');
 
-                ctx.send(cookieFabric, {
-                  type: 'Request',
-                  query: 'my query',
-                  replyTo: ctx.self,
-                });
+              ctx.send(cookieFabric, {
+                type: 'Request',
+                query: 'my query',
+                replyTo: ctx.self,
+              });
 
-                return state;
-              case 'Response':
-                ctx.log(`Got a response: ${msg.result}`);
-                console.log(sys.logs);
+              return state;
+            case 'Response':
+              ctx.log(`Got a response: ${msg.result}`);
+              console.log(sys.logs);
 
-                const participants: Set<ActorRef<any>> = new Set();
+              const participants: Set<ActorRef<any>> = new Set();
 
-                sys.logs.map(log => {
-                  if ('log' in log) {
-                    participants.add(log.ref);
-                  } else {
-                    participants.add(log.from);
-                    participants.add(log.to);
-                  }
-                });
+              sys.logs.map(log => {
+                if ('log' in log) {
+                  participants.add(log.ref);
+                } else {
+                  participants.add(log.from);
+                  participants.add(log.to);
+                }
+              });
 
-                const parr = Array.from(participants);
+              const parr = Array.from(participants);
 
-                const seqDiagram =
-                  `sequenceDiagram\n` +
-                  parr
-                    .map((value, index) => {
-                      return `  participant ${index} as ${value.name}`;
-                    })
-                    .join('\n') +
-                  '\n' +
-                  sys.logs
-                    .map(log => {
-                      if ('log' in log) {
-                        return `  Note right of ${parr.indexOf(log.ref)}: ${
-                          log.log
-                        }`;
-                      }
+              const seqDiagram =
+                `sequenceDiagram\n` +
+                parr
+                  .map((value, index) => {
+                    return `  participant ${index} as ${value.name}`;
+                  })
+                  .join('\n') +
+                '\n' +
+                sys.logs
+                  .map(log => {
+                    if ('log' in log) {
+                      return `  Note right of ${parr.indexOf(log.ref)}: ${
+                        log.log
+                      }`;
+                    }
 
-                      const from = parr.indexOf(log.from);
-                      const to = parr.indexOf(log.to);
+                    const from = parr.indexOf(log.from);
+                    const to = parr.indexOf(log.to);
 
-                      return `  ${from}->>${to}: '${JSON.stringify(
-                        log.message,
-                        (_key, value) => {
-                          if (value instanceof ActorRef) {
-                            return value.name;
-                          }
-                          return value;
+                    return `  ${from}->>${to}: '${JSON.stringify(
+                      log.message,
+                      (_key, value) => {
+                        if (value instanceof ActorRef) {
+                          return value.name;
                         }
-                      )}'`;
-                    })
-                    .join('\n');
+                        return value;
+                      }
+                    )}'`;
+                  })
+                  .join('\n');
 
-                console.log(seqDiagram);
-                done();
-                return state;
-              default:
-                return state;
-            }
-          },
-          undefined
-        );
+              console.log(seqDiagram);
+              done();
+              return state;
+            default:
+              return state;
+          }
+        }, undefined);
 
       const sys = createSystem(Requestor(), 'test');
 
@@ -706,11 +709,11 @@ describe('ActorSystem', () => {
     //   //   case class OpenThePodBayDoorsPlease(replyTo: ActorRef[Response]) extends Command
     //   //   case class Response(message: String)
 
-    //   //   def apply(): Behaviors.Receive[Hal.Command] =
-    //   //     Behaviors.receiveMessage[Command] {
+    //   //   def apply(): Receive[Hal.Command] =
+    //   //     receiveMessage[Command] {
     //   //       case OpenThePodBayDoorsPlease(replyTo) =>
     //   //         replyTo ! Response("I'm sorry, Dave. I'm afraid I can't do that.")
-    //   //         Behaviors.same
+    //   //         same
     //   //     }
     //   // }
 
@@ -725,7 +728,7 @@ describe('ActorSystem', () => {
     //   }
 
     //   const Hal = () =>
-    //     behaviors.receive<OpenThePodBayDoorsPlease>((ctx, msg) => {
+    //     receive<OpenThePodBayDoorsPlease>((ctx, msg) => {
     //       switch (msg.type) {
     //         case 'OpenThePodBayDoorsPlease':
     //           msg.replyTo.send({

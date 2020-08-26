@@ -1,5 +1,4 @@
-import { ActorRef, behaviors } from '../src';
-import { createSystem } from '../src/ActorSystem';
+import { ActorRef, createBehavior, createSystem } from '../src';
 
 describe('todo example', () => {
   it('works', done => {
@@ -11,7 +10,7 @@ describe('todo example', () => {
     type TodoEvent = { type: 'update'; message: string } | { type: 'toggle' };
 
     const Todos = () =>
-      behaviors.createBehavior<
+      createBehavior<
         | {
             type: 'add';
             message: string;
@@ -58,7 +57,7 @@ describe('todo example', () => {
       );
 
     const Todo = (message: string) =>
-      behaviors.createBehavior<TodoEvent, TodoState>(
+      createBehavior<TodoEvent, TodoState>(
         (state, msg) => {
           switch (msg.type) {
             case 'update':
