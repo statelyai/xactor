@@ -1,25 +1,23 @@
-import { ActorSystem } from '../src';
 import * as behaviors from '../src/BehaviorImpl';
 import { ActorRef } from '../src/ActorRef';
-import {
-  BehaviorTag,
-  ActorSignalType,
-  Behavior,
-  Logger,
-} from '../src/Behavior';
+import { ActorSignalType, Behavior, Logger } from '../src/Behavior';
 import { createSystem } from '../src/ActorSystem';
 
 describe('ActorSystem', () => {
   it('simple test', done => {
-    const rootBehavior = behaviors.createBehavior((_, msg) => {
-      if (behaviors.isSignal(msg)) return undefined;
-      console.log('msg recd', msg);
+    const rootBehavior = behaviors.createBehavior<any, boolean>((_, msg) => {
+      if (behaviors.isSignal(msg)) return false;
       expect(msg).toEqual({ type: 'hey' });
-      done();
-      return undefined;
-    }, undefined);
+      return true;
+    }, false);
 
-    const system = new ActorSystem(rootBehavior, 'hello');
+    const system = createSystem(rootBehavior, 'hello');
+
+    system.subscribe(state => {
+      if (state) {
+        done();
+      }
+    });
 
     system.send({ type: 'hey' });
   });
@@ -78,22 +76,14 @@ describe('ActorSystem', () => {
       return bot(0, max);
     };
 
-    const HelloWorldMain: Behavior<
+    const HelloWorldMain = behaviors.createSetupBehavior<
       SayHello,
       { greeter: ActorRef<Greet> | undefined }
-    > = [
-      ({ state: { greeter } }, message, ctx) => {
-        if (
-          behaviors.isSignal(message) &&
-          message.type === ActorSignalType.Start
-        ) {
-          return {
-            state: { greeter: ctx.spawn(HelloWorld, 'greeter') },
-            $$tag: BehaviorTag.Default,
-            effects: [],
-          };
-        }
-
+    >(
+      (_, ctx) => {
+        return { greeter: ctx.spawn(HelloWorld, 'greeter') };
+      },
+      ({ greeter }, message, ctx) => {
         if ('name' in message) {
           const replyTo = ctx.spawn(
             HelloWorldBot(3),
@@ -106,16 +96,14 @@ describe('ActorSystem', () => {
           });
         }
 
-        return { state: { greeter }, $$tag: BehaviorTag.Default, effects: [] };
+        return { greeter };
       },
       {
-        state: { greeter: undefined },
-        $$tag: BehaviorTag.Default,
-        effects: [],
-      },
-    ];
+        greeter: undefined,
+      }
+    );
 
-    const system = new ActorSystem(HelloWorldMain, 'hello');
+    const system = createSystem(HelloWorldMain, 'hello');
 
     system.send({ name: 'World' });
     system.send({ name: 'Akka' });
@@ -257,11 +245,8 @@ describe('ActorSystem', () => {
     };
 
     const Main = () =>
-      behaviors.createBehavior((_, message, context) => {
-        if (
-          behaviors.isSignal(message) &&
-          message.type === ActorSignalType.Start
-        ) {
+      behaviors.createSetupBehavior(
+        (_, context) => {
           const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
           const gabblerRef = context.spawn(Gabbler(), 'gabbler');
 
@@ -270,11 +255,13 @@ describe('ActorSystem', () => {
             screenName: "ol' Gabbler",
             replyTo: gabblerRef,
           });
-        }
-        return { state: undefined, $$tag: BehaviorTag.Default, effects: [] };
-      }, undefined);
+          return undefined;
+        },
+        s => s,
+        undefined
+      );
 
-    new ActorSystem(Main(), 'Chat');
+    createSystem(Main(), 'Chat');
   });
 
   it('aggregation example', done => {
@@ -374,7 +361,7 @@ describe('ActorSystem', () => {
       return state;
     };
 
-    const system = new ActorSystem(
+    const system = createSystem(
       behaviors.createBehavior(orchestratorReducer, {
         entities: new Map(),
         aggregations: {},
@@ -439,7 +426,7 @@ describe('ActorSystem', () => {
       undefined
     );
 
-    const system = new ActorSystem(HelloWorldMain, 'hello');
+    const system = createSystem(HelloWorldMain, 'hello');
 
     system.send({ type: 'hello' });
   });
@@ -493,11 +480,11 @@ describe('ActorSystem', () => {
             return;
           case 'GracefulShutdown':
             context.log(`Initiating graceful shutdown...`);
-            return { state, $$tag: BehaviorTag.Stopped, effects: [] };
+            return behaviors.stopped(state);
         }
       }, undefined);
 
-    const system = new ActorSystem(MasterControlProgram(), 'B7700');
+    const system = createSystem(MasterControlProgram(), 'B7700');
 
     system.send({ type: 'SpawnJob', name: 'a' });
     system.send({ type: 'SpawnJob', name: 'b' });
@@ -514,43 +501,31 @@ describe('ActorSystem', () => {
     }
 
     const Job = (name: string) =>
-      behaviors.createBehavior<{ type: 'finished' }, 'one' | 'two'>(
-        (state, event, ctx) => {
-          ctx.log(state);
-          if (state === 'one') {
-            setTimeout(() => {
-              console.log('send?');
-              ctx.self.send({ type: 'finished' });
-            }, 100);
+      behaviors.createSetupBehavior<{ type: 'finished' }, undefined>(
+        (_, ctx) => {
+          ctx.spawn(
+            behaviors.createTimeout(
+              ctx.self,
+              ref => {
+                ref.send({ type: 'finished' });
+              },
+              100
+            ),
+            'timeout'
+          );
 
-            ctx.log(`Hi I am job ${name}`);
-
-            return 'two';
-          }
-
+          ctx.log(`Hi I am job ${name}`);
+          return undefined;
+        },
+        (state, event) => {
           if (event.type === 'finished') {
-            return { state, $$tag: BehaviorTag.Stopped, effects: [] };
+            return behaviors.stopped(state);
           }
 
           return state;
         },
-        'one'
+        undefined
       );
-
-    // const Job = (name: string): Behavior<{ type: 'finished' }> =>
-    //   behaviors.setup(ctx => {
-    //     setTimeout(() => {
-    //       ctx.self.send({ type: 'finished' });
-    //     }, 100);
-
-    //     ctx.log(`Hi I am job ${name}`);
-    //     return behaviors.receive((ctx, msg) => {
-    //       if (msg.type === 'finished') {
-    //         return behaviors.stopped(() => {});
-    //       }
-    //       return BehaviorTag.Same;
-    //     });
-    //   });
 
     const MasterControlProgram = () =>
       behaviors.createBehavior<SpawnJob>((state, message, context) => {
@@ -584,7 +559,6 @@ describe('ActorSystem', () => {
       jobName: 'job1',
     });
   }, 1000);
-  // });
 
   describe('interaction patterns', () => {
     it('fire and forget', done => {

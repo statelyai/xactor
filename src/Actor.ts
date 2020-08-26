@@ -84,11 +84,6 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
       { type: ActorSignalType.Start },
       this.actorContext
     );
-    // this.behavior = this.resolveBehavior(
-    //   this.behavior.receiveSignal?.(this.actorContext, {
-    //     type: ActorSignalType.Start,
-    //   }) || this.behavior
-    // );
   }
 
   public receive(message: T): void {

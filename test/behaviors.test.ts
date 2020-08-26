@@ -1,5 +1,5 @@
 import * as behaviors from '../src/BehaviorImpl';
-import { ActorSystem } from '../src';
+import { createSystem } from '../src';
 
 describe('behaviors', () => {
   it('Behaviors.Same should result in same behavior', done => {
@@ -16,7 +16,7 @@ describe('behaviors', () => {
       undefined
     );
 
-    const system = new ActorSystem(helloWorldBehavior, 'Hello');
+    const system = createSystem(helloWorldBehavior, 'Hello');
 
     system.send({ whom: 'David' });
 
