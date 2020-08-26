@@ -82,15 +82,16 @@ describe('ActorSystem', () => {
       SayHello,
       { greeter: ActorRef<Greet> | undefined }
     > = [
-      ([{ greeter }], message, ctx) => {
+      ({ state: { greeter } }, message, ctx) => {
         if (
           behaviors.isSignal(message) &&
           message.type === ActorSignalType.Start
         ) {
-          return [
-            { greeter: ctx.spawn(HelloWorld, 'greeter') },
-            BehaviorTag.Default,
-          ];
+          return {
+            state: { greeter: ctx.spawn(HelloWorld, 'greeter') },
+            $$tag: BehaviorTag.Default,
+            effects: [],
+          };
         }
 
         if ('name' in message) {
@@ -105,9 +106,13 @@ describe('ActorSystem', () => {
           });
         }
 
-        return [{ greeter }, BehaviorTag.Default];
+        return { state: { greeter }, $$tag: BehaviorTag.Default, effects: [] };
       },
-      [{ greeter: undefined }, BehaviorTag.Default],
+      {
+        state: { greeter: undefined },
+        $$tag: BehaviorTag.Default,
+        effects: [],
+      },
     ];
 
     const system = new ActorSystem(HelloWorldMain, 'hello');
@@ -266,7 +271,7 @@ describe('ActorSystem', () => {
             replyTo: gabblerRef,
           });
         }
-        return [undefined, BehaviorTag.Default];
+        return { state: undefined, $$tag: BehaviorTag.Default, effects: [] };
       }, undefined);
 
     new ActorSystem(Main(), 'Chat');
@@ -488,7 +493,7 @@ describe('ActorSystem', () => {
             return;
           case 'GracefulShutdown':
             context.log(`Initiating graceful shutdown...`);
-            return [state, BehaviorTag.Stopped];
+            return { state, $$tag: BehaviorTag.Stopped, effects: [] };
         }
       }, undefined);
 
@@ -524,7 +529,7 @@ describe('ActorSystem', () => {
           }
 
           if (event.type === 'finished') {
-            return [state, BehaviorTag.Stopped];
+            return { state, $$tag: BehaviorTag.Stopped, effects: [] };
           }
 
           return state;

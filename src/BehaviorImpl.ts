@@ -4,6 +4,7 @@ import {
   ActorSignal,
   ActorSignalType,
   Behavior,
+  TaggedState,
 } from './Behavior';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -13,8 +14,6 @@ export const isSignal = (msg: any): msg is ActorSignal => {
     Object.values(ActorSignalType).includes(msg.type)
   );
 };
-
-export type TaggedState<TState> = [TState, BehaviorTag];
 
 export type BehaviorReducer<TState, TEvent> = (
   state: TState,
@@ -31,10 +30,7 @@ export function stopped(cleanup: () => void): BehaviorTag.Stopped {
 export function isTaggedState<TState>(
   state: TState | TaggedState<TState>
 ): state is TaggedState<TState> {
-  return (
-    Array.isArray(state) &&
-    (state[1] === BehaviorTag.Default || state[1] === BehaviorTag.Stopped)
-  );
+  return typeof state === 'object' && state !== null && '$$tag' in state;
 }
 
 export function createBehavior<T, TState = any>(
@@ -43,33 +39,19 @@ export function createBehavior<T, TState = any>(
 ): Behavior<T, TState> {
   return [
     (taggedState, msg, ctx) => {
-      const [state, tag] = taggedState;
+      const { state, $$tag: tag } = taggedState;
       const nextState = reducer(state, msg, ctx);
 
       const nextTaggedState = isTaggedState(nextState)
         ? nextState
-        : ([nextState, tag] as TaggedState<TState>);
+        : {
+            state: nextState,
+            $$tag: tag,
+            effects: [],
+          };
 
       return nextTaggedState;
     },
-    [initial, BehaviorTag.Setup],
-  ];
-}
-
-export function fromReceive<T>(
-  fn?: (ctx: ActorContext<T>, msg: T) => void,
-  signalFn?: (ctx: ActorContext<T>, signal: ActorSignal) => void
-): Behavior<T> {
-  return [
-    (_, msg, ctx) => {
-      if (isSignal(msg)) {
-        signalFn?.(ctx, msg);
-        return [undefined, BehaviorTag.Default];
-      }
-
-      fn?.(ctx, msg);
-      return [undefined, BehaviorTag.Default];
-    },
-    [undefined, BehaviorTag.Setup],
+    { state: initial, $$tag: BehaviorTag.Setup, effects: [] },
   ];
 }

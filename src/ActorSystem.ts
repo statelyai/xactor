@@ -3,9 +3,9 @@ import { ActorRef } from './ActorRef';
 import { Behavior } from './Behavior';
 import { Subscribable } from './types';
 
-export class ActorSystem<T> implements Subscribable<any> {
+export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
   public settings: any;
-  private guardian: ActorRef<any>;
+  private guardian: ActorRef<T>;
   public logger = (actorRef: ActorRef<any>) => (...args: any[]) => {
     const label =
       actorRef === this.guardian
@@ -27,7 +27,7 @@ export class ActorSystem<T> implements Subscribable<any> {
       }
   > = [];
 
-  constructor(behavior: Behavior<T>, public name: string) {
+  constructor(behavior: Behavior<T, TEmitted>, public name: string) {
     this.guardian = new ActorRef(behavior, name, this);
   }
 
@@ -35,11 +35,14 @@ export class ActorSystem<T> implements Subscribable<any> {
     this.guardian.send(message);
   }
 
-  subscribe(listener: Listener<any>) {
+  subscribe(listener: Listener<TEmitted>) {
     return this.guardian.subscribe(listener);
   }
 }
 
-export function createSystem<T>(behavior: Behavior<T>, name: string) {
-  return new ActorSystem<T>(behavior, name);
+export function createSystem<T, TEmitted = any>(
+  behavior: Behavior<T, TEmitted>,
+  name: string
+) {
+  return new ActorSystem<T, TEmitted>(behavior, name);
 }

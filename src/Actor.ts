@@ -17,7 +17,7 @@ enum ActorRefStatus {
 
 export type Listener<T> = (emitted: T) => void;
 
-export class Actor<T> implements Subscribable<any> {
+export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
   private mailbox: T[] = [];
@@ -33,7 +33,7 @@ export class Actor<T> implements Subscribable<any> {
   };
 
   constructor(
-    behavior: Behavior<T>,
+    behavior: Behavior<T, TEmitted>,
     public name: string,
     ref: ActorRef<T>,
     private system: ActorSystem<any>
@@ -103,12 +103,12 @@ export class Actor<T> implements Subscribable<any> {
       return;
     }
 
-    const [state] = this.reducer(this.taggedState, signal, this.actorContext);
+    const { state } = this.reducer(this.taggedState, signal, this.actorContext);
 
     this.taggedState = state;
   }
   private process(message: T): void {
-    if (this.taggedState[1] === BehaviorTag.Stopped) {
+    if (this.taggedState.$$tag === BehaviorTag.Stopped) {
       console.warn(
         `Attempting to send message to stopped actor ${this.name}`,
         message
@@ -118,13 +118,13 @@ export class Actor<T> implements Subscribable<any> {
 
     this.status = ActorRefStatus.Processing;
 
-    const [state, tag] = this.reducer(
+    const { state, $$tag: tag } = this.reducer(
       this.taggedState,
       message,
       this.actorContext
     );
 
-    this.taggedState = [state, tag];
+    this.taggedState = { state, $$tag: tag, effects: [] };
 
     this.topics.listeners.forEach(listener => {
       listener(state);

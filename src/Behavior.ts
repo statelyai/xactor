@@ -40,7 +40,11 @@ export enum BehaviorTag {
   Stopped,
 }
 
-export type TaggedState<TState> = [TState, BehaviorTag];
+export interface TaggedState<TState> {
+  state: TState;
+  $$tag: BehaviorTag;
+  effects: any[];
+}
 
 export type Behavior<T, TState = any> = [
   (

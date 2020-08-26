@@ -3,6 +3,13 @@ import { createSystem } from '../src/ActorSystem';
 
 describe('todo example', () => {
   it('works', done => {
+    interface TodoState {
+      message: string;
+      status: 'pending' | 'complete';
+    }
+
+    type TodoEvent = { type: 'update'; message: string } | { type: 'toggle' };
+
     const Todos = () =>
       behaviors.createBehavior<
         | {
@@ -12,7 +19,7 @@ describe('todo example', () => {
         | { type: 'update'; index: number; message: string }
         | { type: 'toggle'; index: number },
         {
-          todos: ActorRef<any>[];
+          todos: ActorRef<TodoEvent, TodoState>[];
         }
       >(
         (state, msg, ctx) => {
@@ -51,13 +58,7 @@ describe('todo example', () => {
       );
 
     const Todo = (message: string) =>
-      behaviors.createBehavior<
-        { type: 'update'; message: string } | { type: 'toggle' },
-        {
-          message: string;
-          status: 'pending' | 'complete';
-        }
-      >(
+      behaviors.createBehavior<TodoEvent, TodoState>(
         (state, msg) => {
           switch (msg.type) {
             case 'update':
@@ -66,9 +67,6 @@ describe('todo example', () => {
               }
               return { ...state, message: msg.message };
             case 'toggle':
-              if (state.message === 'mission accomplished') {
-                done();
-              }
               return {
                 ...state,
                 status: state.status === 'pending' ? 'complete' : 'pending',
@@ -85,23 +83,30 @@ describe('todo example', () => {
 
     const todoSystem = createSystem(Todos(), 'todos');
 
+    let todo: ActorRef<TodoEvent, TodoState>;
+
     todoSystem.subscribe(state => {
-      console.log(state);
+      if (state.todos.length && !todo) {
+        todo = state.todos[0];
+        todo.subscribe(state => {
+          if (
+            state.message === 'mission accomplished' &&
+            state.status === 'complete'
+          ) {
+            done();
+          }
+        });
+        todo.send({
+          type: 'update',
+          message: 'mission accomplished',
+        });
+
+        todo.send({
+          type: 'toggle',
+        });
+      }
     });
 
     todoSystem.send({ type: 'add', message: 'hello' });
-
-    setTimeout(() => {
-      todoSystem.send({
-        type: 'update',
-        index: 0,
-        message: 'mission accomplished',
-      });
-
-      todoSystem.send({
-        type: 'toggle',
-        index: 0,
-      });
-    }, 10);
   });
 });
