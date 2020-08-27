@@ -1,27 +1,46 @@
-# TSDX Bootstrap
+# XActor
 
-This project was bootstrapped with [TSDX](https://github.com/jaredpalmer/tsdx).
+**🚧 Work in progress! 🚧**
 
-## Local Development
+XActor is an [actor model](https://en.wikipedia.org/wiki/Actor_model) implementation for JavaScript and TypeScript, heavily inspired by Akka. It represents the "actor model" parts of [XState](https://github.com/davidkpiano/xstate) and can be used with or without XState.
 
-Below is a list of commands you will probably find useful.
+## Installation
 
-### `npm start` or `yarn start`
+- With [npm](https://www.npmjs.com/package/xactor): `npm install xactor --save`
+- With Yarn: `yarn add xactor`
 
-Runs the project in development/watch mode. Your project will be rebuilt upon changes. TSDX has a special logger for you convenience. Error messages are pretty printed and formatted for compatibility VS Code's Problems tab.
+## Quick Start
 
-<img src="https://user-images.githubusercontent.com/4060187/52168303-574d3a00-26f6-11e9-9f3b-71dbec9ebfcb.gif" width="600" />
+```js
+import { createSystem, createBehavior } from 'xactor';
 
-Your library will be rebuilt if you make edits.
+// Yes, I know, another trivial counter example
+const counter = createBehavior(
+  (state, message, context) => {
+    if (message.type === 'add') {
+      context.log(`adding ${message.value}`);
 
-### `npm run build` or `yarn build`
+      return {
+        ...state,
+        count: state.count + message.value,
+      };
+    }
 
-Bundles the package to the `dist` folder.
-The package is optimized and bundled with Rollup into multiple formats (CommonJS, UMD, and ES Module).
+    return state;
+  },
+  { count: 0 }
+);
 
-<img src="https://user-images.githubusercontent.com/4060187/52168322-a98e5b00-26f6-11e9-8cf6-222d716b75ef.gif" width="600" />
+const counterSystem = createSystem(counter, 'counter');
 
-### `npm test` or `yarn test`
+counterSystem.subscribe(state => {
+  console.log(state);
+});
 
-Runs the test watcher (Jest) in an interactive mode.
-By default, runs tests related to files changed since the last commit.
+counterSystem.send({ type: 'add', value: 3 });
+// => [counter] adding 3
+// => { count: 3 }
+counterSystem.send({ type: 'add', value: 1 });
+// => [counter] adding 1
+// => { count: 4 }
+```
