@@ -63,3 +63,65 @@ counterSystem.send({ type: 'add', value: 1 });
 // => [counter] adding 1
 // => { count: 4 }
 ```
+
+## API
+
+### `createBehavior(reducer, initialState)`
+
+Creates a **behavior** that is represented by the `reducer` and starts at the `initialState`.
+
+**Arguments**
+
+- `reducer` - a reducer that takes 3 arguments (`state`, `message`, `actorContext`) and should return the next state (tagged or not).
+- `initialState` - the initial state of the behavior.
+
+**Reducer Arguments**
+
+- `state` - the current _untagged_ state.
+- `message` - the current message to be processed by the reducer.
+- `actorContext` - the [actor context](#actor-context) of the actor instance using this behavior.
+
+## Actor Context
+
+The actor context is an object that includes contextual information about the current actor instance:
+
+- `self` - the `ActorRef` reference to the own actor
+- `system` - the reference to the actor system that owns this actor
+- `log` - function for logging messages that reference the actor
+- `spawn` - function to [spawn an actor](#spawning-actors)
+- `stop` - function to stop a spawned actor
+- `watch` - function to watch an actor
+
+## Spawning Actors
+
+Actors can be spawned via `actorContext.spawn(behavior, name)` within a behavior reducer:
+
+```js
+const createTodo = (content = "") => createBehavior((state, msg, ctx) => {
+  // ...
+  
+  return state;
+}, { content });
+
+const todos = createBehavior((state, msg, ctx) => {
+  if (msg.type === 'todo.create') {
+    return {
+      ...state,
+      todos: [
+        ...state.todos,
+        ctx.spawn(createTodo(), 'some-unique-todo-id')
+      ]
+    }
+  }
+  
+  // ...
+  
+  return state;
+}, { todos: [] });
+
+const todoSystem = createSystem(todos, 'todos');
+
+todoSystem.send({ type: 'todo.create' });
+```
+
+_Documentation still a work-in-progress!_
