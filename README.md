@@ -29,6 +29,7 @@ Learn more about the Actor Model:
 
 ## Quick Start
 
+[Simple Example](https://codesandbox.io/s/simple-xactor-example-7iyck?file=/src/index.js):
 ```js
 import { createSystem, createBehavior } from 'xactor';
 
