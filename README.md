@@ -124,4 +124,4 @@ const todoSystem = createSystem(todos, 'todos');
 todoSystem.send({ type: 'todo.create' });
 ```
 
-_Documentation still a work-in-progress!_
+_Documentation still a work-in-progress! Please see [the tests](https://github.com/davidkpiano/xactor/blob/master/test/actorSystem.test.ts) for now as examples._
