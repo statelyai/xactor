@@ -7,4 +7,4 @@ export {
   isSignal,
   stopped,
   createTimeout,
-} from './BehaviorImpl';
+} from './Behavior';

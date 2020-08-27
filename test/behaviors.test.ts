@@ -1,11 +1,10 @@
-import * as behaviors from '../src/BehaviorImpl';
-import { createSystem } from '../src';
+import { createBehavior, createSystem, isSignal } from '../src';
 
 describe('behaviors', () => {
-  it('Behaviors.Same should result in same behavior', done => {
-    const helloWorldBehavior = behaviors.createBehavior<{ whom: string }>(
+  it('should result in same behavior', done => {
+    const helloWorldBehavior = createBehavior<{ whom: string }>(
       (_, message) => {
-        if (behaviors.isSignal(message)) {
+        if (isSignal(message)) {
           return undefined;
         }
 

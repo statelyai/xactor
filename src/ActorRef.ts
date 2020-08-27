@@ -1,7 +1,6 @@
-import { ActorSignal, Behavior } from './Behavior';
 import { ActorSystem } from './ActorSystem';
 import { Actor, Listener } from './Actor';
-import { Subscribable } from './types';
+import { ActorSignal, Behavior, Subscribable } from './types';
 
 export interface ActorRef<T, TEmitted = any> extends Subscribable<TEmitted> {
   send(message: T): void;
