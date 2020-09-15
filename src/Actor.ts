@@ -174,4 +174,8 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
       },
     };
   }
+
+  public getSnapshot(): TEmitted {
+    return this.taggedState.state;
+  }
 }

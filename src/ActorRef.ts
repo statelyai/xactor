@@ -34,4 +34,8 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
       console.log('ERROR', err);
     });
   }
+
+  public getSnapshot(): TEmitted {
+    return this.actor.getSnapshot();
+  }
 }

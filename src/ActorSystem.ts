@@ -30,12 +30,16 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
     this.guardian = new ActorRef(behavior, name, this);
   }
 
-  send(message: T) {
+  public send(message: T) {
     this.guardian.send(message);
   }
 
-  subscribe(listener: Listener<TEmitted>) {
+  public subscribe(listener: Listener<TEmitted>) {
     return this.guardian.subscribe(listener);
+  }
+
+  public getSnapshot(): TEmitted {
+    return this.guardian.getSnapshot();
   }
 }
 
