@@ -38,6 +38,10 @@ export interface ActorContext<T> {
 
   // spawnAnonymous<U>(behavior: Behavior<U>): ActorRef<U>;
   spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U>;
+  spawnPromise<U extends T>(
+    getPromise: () => Promise<U>,
+    name: string
+  ): ActorRef<any, U | undefined>;
   stop<U>(child: ActorRef<U>): void;
 }
 

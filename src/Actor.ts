@@ -9,6 +9,7 @@ import {
 } from './types';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from './ActorSystem';
+import { fromPromise } from './Behavior';
 
 enum ActorRefStatus {
   Idle = 0,
@@ -54,6 +55,17 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
       },
       children: this.children,
       spawn: this.spawn.bind(this),
+      spawnPromise: <U extends T>(
+        getPromise: () => Promise<U>,
+        name: string
+      ) => {
+        return this.spawn(
+          fromPromise(getPromise, value => {
+            ref.send(value);
+          }),
+          name
+        );
+      },
       send: (actorRef, message) => {
         this.system.logs.push({
           from: ref,
