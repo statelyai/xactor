@@ -18,6 +18,7 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
   ) {
     this.name = name;
     this.actor = new Actor(behavior, name, this, system);
+    this.send = this.send.bind(this);
     // this.system = system;
   }
 

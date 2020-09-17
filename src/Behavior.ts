@@ -143,3 +143,16 @@ export function stopped<TState>(
     effects: [],
   };
 }
+
+export function fromPromise<T>(
+  getPromise: () => Promise<T>
+): Behavior<T | undefined> {
+  return [
+    (state, _, ctx) => {
+      if (state.$$tag === BehaviorTag.Setup) {
+        getPromise().then(res => ctx.self.se);
+      }
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
+}
