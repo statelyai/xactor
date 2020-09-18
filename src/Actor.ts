@@ -5,11 +5,13 @@ import {
   Behavior,
   BehaviorTag,
   TaggedState,
+  Observer,
+  SubscribableByObserver,
   Subscribable,
 } from './types';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from './ActorSystem';
-import { fromPromise } from './Behavior';
+import { fromEntity } from './Behavior';
 
 enum ActorRefStatus {
   Idle = 0,
@@ -18,7 +20,8 @@ enum ActorRefStatus {
 
 export type Listener<T> = (emitted: T) => void;
 
-export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
+export class Actor<T, TEmitted = any>
+  implements SubscribableByObserver<TEmitted> {
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
   private mailbox: T[] = [];
@@ -55,13 +58,19 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
       },
       children: this.children,
       spawn: this.spawn.bind(this),
-      spawnPromise: <U extends T>(
-        getPromise: () => Promise<U>,
+      spawnFrom: <U extends T>(
+        getPromise: () => Promise<U> | Subscribable<U>,
         name: string
       ) => {
+        const sendToSelf = (value: U) => {
+          ref.send(value);
+        };
+
         return this.spawn(
-          fromPromise(getPromise, value => {
-            ref.send(value);
+          fromEntity(getPromise, {
+            next: sendToSelf,
+            error: sendToSelf,
+            complete: undefined,
           }),
           name
         );
@@ -175,14 +184,14 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
     return child;
   }
 
-  public subscribe(listener: Listener<any>, errorListener: Listener<any>) {
-    this.topics.listeners.add(listener);
-    this.topics.errorListeners.add(errorListener);
+  public subscribe(observer: Observer<TEmitted>) {
+    if (observer.next) this.topics.listeners.add(observer.next);
+    if (observer.error) this.topics.errorListeners.add(observer.error);
 
     return {
       unsubscribe: () => {
-        this.topics.listeners.delete(listener);
-        this.topics.errorListeners.delete(errorListener);
+        if (observer.next) this.topics.listeners.delete(observer.next);
+        if (observer.error) this.topics.errorListeners.delete(observer.error);
       },
     };
   }

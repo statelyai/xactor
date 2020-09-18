@@ -7,6 +7,8 @@ import {
   Behavior,
   TaggedState,
   BehaviorReducer,
+  Subscribable,
+  Observer,
 } from './types';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -153,6 +155,48 @@ export function fromPromise<T>(
     taggedState => {
       if (taggedState.$$tag === BehaviorTag.Setup) {
         getPromise().then(resolve, reject);
+
+        return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      return taggedState;
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
+}
+
+export function fromObservable<T>(
+  getObservable: () => Subscribable<T>,
+  observer: Observer<T>
+): Behavior<any, T | undefined> {
+  return [
+    taggedState => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        getObservable().subscribe(observer);
+
+        return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      return taggedState;
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
+}
+
+export function fromEntity<T>(
+  getEntity: () => Promise<T> | Subscribable<T>,
+  observer: Observer<T>
+): Behavior<any, T | undefined> {
+  return [
+    taggedState => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        const entity = getEntity();
+
+        if ('subscribe' in entity) {
+          entity.subscribe(observer);
+        } else {
+          entity.then(observer.next, observer.error);
+        }
 
         return withTag(taggedState.state, BehaviorTag.Default);
       }

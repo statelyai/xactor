@@ -33,7 +33,9 @@
   "author": "David Khourshid",
   "module": "dist/xactor.esm.js",
   "devDependencies": {
+    "@types/node": "^14.11.1",
     "husky": "^4.2.5",
+    "rxjs": "^6.6.3",
     "tsdx": "^0.13.2",
     "tslib": "^2.0.0",
     "typescript": "^3.9.6"

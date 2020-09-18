@@ -1,4 +1,6 @@
 import { createBehavior, createSystem, isSignal } from '../src';
+import { interval } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 describe('behaviors', () => {
   it('should result in same behavior', done => {
@@ -36,13 +38,45 @@ describe('promise behavior', () => {
         }
 
         if (state === 'idle') {
-          ctx.spawnPromise(() => {
+          ctx.spawnFrom(() => {
             return new Promise<{ type: 'response'; value: number }>(res => {
               setTimeout(() => {
                 res({ type: 'response', value: 42 });
               }, 100);
             });
           }, 'promise');
+
+          return 'pending';
+        }
+
+        return state;
+      },
+      'idle'
+    );
+
+    // @ts-ignore
+    const system = createSystem(behavior, 'sys');
+  });
+});
+
+describe('observable behavior', () => {
+  it('can receive multiple values from an observable', done => {
+    const behavior = createBehavior<{ type: 'response'; value: number }>(
+      (state, msg, ctx) => {
+        if (msg.type === 'response' && msg.value === 3) {
+          done();
+          return state;
+        }
+
+        if (state === 'idle') {
+          ctx.spawnFrom(() => {
+            return interval(10).pipe(
+              map(n => ({
+                type: 'response',
+                value: n,
+              }))
+            );
+          }, 'observable');
 
           return 'pending';
         }

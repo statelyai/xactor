@@ -1,9 +1,14 @@
 import { ActorSystem } from './ActorSystem';
 import { Actor, Listener } from './Actor';
-import { ActorSignal, Behavior, Subscribable } from './types';
+import { ActorSignal, Behavior, Subscribable, Observer } from './types';
+import { symbolObservable } from './observable';
 
 export interface ActorRef<T, TEmitted = any> extends Subscribable<TEmitted> {
   send(message: T): void;
+}
+
+function unhandledErrorListener(error: any) {
+  console.error(error);
 }
 
 export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
@@ -30,13 +35,26 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
     this.actor.receiveSignal(signal);
   }
 
-  public subscribe(listener: Listener<TEmitted>) {
-    return this.actor.subscribe(listener, err => {
-      console.log('ERROR', err);
-    });
+  public subscribe(
+    listener: Listener<TEmitted> | Observer<TEmitted>,
+    errorListener: Listener<any> = unhandledErrorListener
+  ) {
+    const observer =
+      typeof listener === 'function'
+        ? ({
+            next: listener,
+            error: errorListener,
+          } as Observer<TEmitted>)
+        : listener;
+
+    return this.actor.subscribe(observer);
   }
 
   public getSnapshot(): TEmitted {
     return this.actor.getSnapshot();
+  }
+
+  public [symbolObservable]() {
+    return this;
   }
 }

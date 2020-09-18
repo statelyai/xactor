@@ -13,16 +13,20 @@ export interface Observer<T> {
   error?: (errorValue: any) => void;
 
   // Sends the completion notification
-  complete: () => void;
+  complete: any; // TODO: what do you want, RxJS???
 }
 
 export interface Subscribable<T> {
-  // subscribe(observer: Observer<T>): Subscription;
+  subscribe(observer: Observer<T>): Subscription;
   subscribe(
     next: (value: T) => void,
     error?: (error: any) => void,
     complete?: () => void
   ): Subscription;
+}
+
+export interface SubscribableByObserver<T> {
+  subscribe(observer: Observer<T>): Subscription;
 }
 
 export type Logger = any;
@@ -38,8 +42,8 @@ export interface ActorContext<T> {
 
   // spawnAnonymous<U>(behavior: Behavior<U>): ActorRef<U>;
   spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U>;
-  spawnPromise<U extends T>(
-    getPromise: () => Promise<U>,
+  spawnFrom<U extends T>(
+    getEntity: () => Promise<U> | Subscribable<U>,
     name: string
   ): ActorRef<any, U | undefined>;
   stop<U>(child: ActorRef<U>): void;

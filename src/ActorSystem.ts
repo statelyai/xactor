@@ -1,6 +1,6 @@
 import { Listener } from './Actor';
 import { ActorRef } from './ActorRef';
-import { Behavior, Subscribable } from './types';
+import { Behavior, Subscribable, Observer } from './types';
 
 export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
   public settings: any;
@@ -34,7 +34,7 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
     this.guardian.send(message);
   }
 
-  public subscribe(listener: Listener<TEmitted>) {
+  public subscribe(listener: Listener<TEmitted> | Observer<TEmitted>) {
     return this.guardian.subscribe(listener);
   }
 
