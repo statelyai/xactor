@@ -36,7 +36,7 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
   }
 
   public subscribe(
-    listener: Listener<TEmitted> | Observer<TEmitted>,
+    listener?: Listener<TEmitted> | Observer<TEmitted> | null,
     errorListener: Listener<any> = unhandledErrorListener
   ) {
     const observer =

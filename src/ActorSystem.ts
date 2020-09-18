@@ -1,5 +1,6 @@
 import { Listener } from './Actor';
 import { ActorRef } from './ActorRef';
+import { symbolObservable } from './observable';
 import { Behavior, Subscribable, Observer } from './types';
 
 export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
@@ -34,8 +35,12 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
     this.guardian.send(message);
   }
 
-  public subscribe(listener: Listener<TEmitted> | Observer<TEmitted>) {
+  public subscribe(listener?: Listener<TEmitted> | Observer<TEmitted> | null) {
     return this.guardian.subscribe(listener);
+  }
+
+  public [symbolObservable]() {
+    return this;
   }
 
   public getSnapshot(): TEmitted {

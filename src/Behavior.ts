@@ -9,6 +9,7 @@ import {
   BehaviorReducer,
   Subscribable,
   Observer,
+  Subscription,
 } from './types';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -169,12 +170,20 @@ export function fromObservable<T>(
   getObservable: () => Subscribable<T>,
   observer: Observer<T>
 ): Behavior<any, T | undefined> {
+  let sub: Subscription;
+
   return [
-    taggedState => {
+    (taggedState, msg) => {
       if (taggedState.$$tag === BehaviorTag.Setup) {
-        getObservable().subscribe(observer);
+        sub = getObservable().subscribe(observer);
 
         return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      if (isSignal(msg) && msg.type === ActorSignalType.PostStop) {
+        sub?.unsubscribe();
+
+        return stopped(undefined);
       }
 
       return taggedState;

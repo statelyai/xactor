@@ -184,9 +184,15 @@ export class Actor<T, TEmitted = any>
     return child;
   }
 
-  public subscribe(observer: Observer<TEmitted>) {
-    if (observer.next) this.topics.listeners.add(observer.next);
-    if (observer.error) this.topics.errorListeners.add(observer.error);
+  public subscribe(observer?: Observer<TEmitted> | null) {
+    if (!observer) {
+      return { unsubscribe: () => {} };
+    }
+
+    // TODO: file an RxJS issue (should not need to be bound)
+    if (observer.next) this.topics.listeners.add(observer.next.bind(observer));
+    if (observer.error)
+      this.topics.errorListeners.add(observer.error.bind(observer));
 
     return {
       unsubscribe: () => {

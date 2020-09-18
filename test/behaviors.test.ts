@@ -1,5 +1,5 @@
 import { createBehavior, createSystem, isSignal } from '../src';
-import { interval } from 'rxjs';
+import { from, interval } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 describe('behaviors', () => {
@@ -88,5 +88,30 @@ describe('observable behavior', () => {
 
     // @ts-ignore
     const system = createSystem(behavior, 'sys');
+  });
+
+  it('can be consumed as an observable', done => {
+    const behavior = createBehavior<{ type: 'event'; value: number }, number>(
+      (state, message) => {
+        if (message.type === 'event') {
+          return message.value;
+        }
+
+        return state;
+      },
+      0
+    );
+
+    const system = createSystem(behavior, 'sys');
+
+    const num$ = from(system);
+
+    num$.subscribe(value => {
+      if (value === 42) {
+        done();
+      }
+    });
+
+    system.send({ type: 'event', value: 42 });
   });
 });

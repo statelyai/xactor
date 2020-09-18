@@ -5,16 +5,41 @@ export interface Subscription {
   unsubscribe(): void;
 }
 
-export interface Observer<T> {
-  // Sends the next value in the sequence
-  next?: (value: T) => void;
+// export interface Observer<T> {
+//   // Sends the next value in the sequence
+//   next?: (value: T) => void;
 
-  // Sends the sequence error
-  error?: (errorValue: any) => void;
+//   // Sends the sequence error
+//   error?: (errorValue: any) => void;
 
-  // Sends the completion notification
-  complete: any; // TODO: what do you want, RxJS???
+//   // Sends the completion notification
+//   complete: any; // TODO: what do you want, RxJS???
+// }
+
+/** OBSERVER INTERFACES - from RxJS */
+export interface NextObserver<T> {
+  closed?: boolean;
+  next: (value: T) => void;
+  error?: (err: any) => void;
+  complete?: () => void;
 }
+export interface ErrorObserver<T> {
+  closed?: boolean;
+  next?: (value: T) => void;
+  error: (err: any) => void;
+  complete?: () => void;
+}
+export interface CompletionObserver<T> {
+  closed?: boolean;
+  next?: (value: T) => void;
+  error?: (err: any) => void;
+  complete: () => void;
+}
+
+export type Observer<T> =
+  | NextObserver<T>
+  | ErrorObserver<T>
+  | CompletionObserver<T>;
 
 export interface Subscribable<T> {
   subscribe(observer: Observer<T>): Subscription;
