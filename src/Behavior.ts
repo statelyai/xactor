@@ -146,15 +146,18 @@ export function stopped<TState>(
 
 export function fromPromise<T>(
   getPromise: () => Promise<T>,
-  resolve: (value: T) => void
+  resolve: (value: T) => void,
+  reject?: (error: any) => void
 ): Behavior<any, T | undefined> {
   return [
-    state => {
-      if (state.$$tag === BehaviorTag.Setup) {
-        getPromise().then(resolve);
+    taggedState => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        getPromise().then(resolve, reject);
+
+        return withTag(taggedState.state, BehaviorTag.Default);
       }
 
-      return state;
+      return taggedState;
     },
     withTag(undefined, BehaviorTag.Setup),
   ];

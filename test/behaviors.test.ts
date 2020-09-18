@@ -24,3 +24,35 @@ describe('behaviors', () => {
     }, 1000);
   });
 });
+
+describe('promise behavior', () => {
+  it('can receive a response from a resolved promise', done => {
+    const behavior = createBehavior<{ type: 'response'; value: number }>(
+      (state, msg, ctx) => {
+        if (msg.type === 'response') {
+          expect(msg.value).toEqual(42);
+          done();
+          return state;
+        }
+
+        if (state === 'idle') {
+          ctx.spawnPromise(() => {
+            return new Promise<{ type: 'response'; value: number }>(res => {
+              setTimeout(() => {
+                res({ type: 'response', value: 42 });
+              }, 100);
+            });
+          }, 'promise');
+
+          return 'pending';
+        }
+
+        return state;
+      },
+      'idle'
+    );
+
+    // @ts-ignore
+    const system = createSystem(behavior, 'sys');
+  });
+});
