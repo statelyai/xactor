@@ -7,6 +7,9 @@ import {
   Behavior,
   TaggedState,
   BehaviorReducer,
+  Subscribable,
+  Observer,
+  Subscription,
 } from './types';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -142,4 +145,73 @@ export function stopped<TState>(
     $$tag: BehaviorTag.Stopped,
     effects: [],
   };
+}
+
+export function fromPromise<T>(
+  getPromise: () => Promise<T>,
+  resolve: (value: T) => void,
+  reject?: (error: any) => void
+): Behavior<any, T | undefined> {
+  return [
+    taggedState => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        getPromise().then(resolve, reject);
+
+        return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      return taggedState;
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
+}
+
+export function fromObservable<T>(
+  getObservable: () => Subscribable<T>,
+  observer: Observer<T>
+): Behavior<any, T | undefined> {
+  let sub: Subscription;
+
+  return [
+    (taggedState, msg) => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        sub = getObservable().subscribe(observer);
+
+        return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      if (isSignal(msg) && msg.type === ActorSignalType.PostStop) {
+        sub?.unsubscribe();
+
+        return stopped(undefined);
+      }
+
+      return taggedState;
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
+}
+
+export function fromEntity<T>(
+  getEntity: () => Promise<T> | Subscribable<T>,
+  observer: Observer<T>
+): Behavior<any, T | undefined> {
+  return [
+    taggedState => {
+      if (taggedState.$$tag === BehaviorTag.Setup) {
+        const entity = getEntity();
+
+        if ('subscribe' in entity) {
+          entity.subscribe(observer);
+        } else {
+          entity.then(observer.next, observer.error);
+        }
+
+        return withTag(taggedState.state, BehaviorTag.Default);
+      }
+
+      return taggedState;
+    },
+    withTag(undefined, BehaviorTag.Setup),
+  ];
 }

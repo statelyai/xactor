@@ -5,10 +5,13 @@ import {
   Behavior,
   BehaviorTag,
   TaggedState,
+  Observer,
+  SubscribableByObserver,
   Subscribable,
 } from './types';
 import { ActorRef } from './ActorRef';
 import { ActorSystem } from './ActorSystem';
+import { fromEntity } from './Behavior';
 
 enum ActorRefStatus {
   Idle = 0,
@@ -17,7 +20,8 @@ enum ActorRefStatus {
 
 export type Listener<T> = (emitted: T) => void;
 
-export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
+export class Actor<T, TEmitted = any>
+  implements SubscribableByObserver<TEmitted> {
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
   private mailbox: T[] = [];
@@ -54,6 +58,23 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
       },
       children: this.children,
       spawn: this.spawn.bind(this),
+      spawnFrom: <U extends T>(
+        getPromise: () => Promise<U> | Subscribable<U>,
+        name: string
+      ) => {
+        const sendToSelf = (value: U) => {
+          ref.send(value);
+        };
+
+        return this.spawn(
+          fromEntity(getPromise, {
+            next: sendToSelf,
+            error: sendToSelf,
+            complete: undefined,
+          }),
+          name
+        );
+      },
       send: (actorRef, message) => {
         this.system.logs.push({
           from: ref,
@@ -163,15 +184,25 @@ export class Actor<T, TEmitted = any> implements Subscribable<TEmitted> {
     return child;
   }
 
-  public subscribe(listener: Listener<any>, errorListener: Listener<any>) {
-    this.topics.listeners.add(listener);
-    this.topics.errorListeners.add(errorListener);
+  public subscribe(observer?: Observer<TEmitted> | null) {
+    if (!observer) {
+      return { unsubscribe: () => {} };
+    }
+
+    // TODO: file an RxJS issue (should not need to be bound)
+    if (observer.next) this.topics.listeners.add(observer.next.bind(observer));
+    if (observer.error)
+      this.topics.errorListeners.add(observer.error.bind(observer));
 
     return {
       unsubscribe: () => {
-        this.topics.listeners.delete(listener);
-        this.topics.errorListeners.delete(errorListener);
+        if (observer.next) this.topics.listeners.delete(observer.next);
+        if (observer.error) this.topics.errorListeners.delete(observer.error);
       },
     };
+  }
+
+  public getSnapshot(): TEmitted {
+    return this.taggedState.state;
   }
 }
