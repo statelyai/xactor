@@ -1,0 +1,10 @@
+{
+  "title": "XActor Documentation",
+  "url": "xactor.js.org/docs",
+  "logo": {
+    "light": "/logo-light.svg",
+    "dark": "/logo-dark.svg"
+  },
+  "github": "davidkpiano/xactor",
+  "twitter": "@davidkpiano"
+}
