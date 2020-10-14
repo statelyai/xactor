@@ -27,6 +27,10 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
     // this.system = system;
   }
 
+  public start(): void {
+    this.actor.start();
+  }
+
   public send(message: T): void {
     this.actor.receive(message);
   }

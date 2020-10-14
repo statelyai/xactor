@@ -34,18 +34,23 @@ export function createBehavior<T, TState = any>(
     (taggedState, msg, ctx) => {
       const { state, $$tag: tag } = taggedState;
 
-      // const effects: any[] = [];
-      // const ctxProxy: ActorContext<T> = {
-      //   ...ctx,
-      //   spawn: (behavior, name) => {
-      //     effects.push({
-      //       type: 'spawn',
-      //       behavior,
-      //       name
-      //     })
-      //   }
-      // }
-      const nextState = reducer(state, msg, ctx);
+      const effects: any[] = [];
+      const ctxProxy: ActorContext<T> = {
+        ...ctx,
+        spawn: (behavior, name) => {
+          const actor = ctx.spawn(behavior, name);
+
+          effects.push({
+            type: 'start',
+            actor,
+          });
+
+          actor.start();
+
+          return actor;
+        },
+      };
+      const nextState = reducer(state, msg, ctxProxy);
 
       const nextTaggedState = isTaggedState(nextState)
         ? nextState
@@ -83,18 +88,25 @@ export function createSetupBehavior<T, TState = any>(
       const { state, $$tag: tag } = taggedState;
       const isSetup = tag === BehaviorTag.Setup;
 
-      // const effects: any[] = [];
-      // const ctxProxy: ActorContext<T> = {
-      //   ...ctx,
-      //   spawn: (behavior, name) => {
-      //     effects.push({
-      //       type: 'spawn',
-      //       behavior,
-      //       name
-      //     })
-      //   }
-      // }
-      const nextState = isSetup ? setup(state, ctx) : reducer(state, msg, ctx);
+      const effects: any[] = [];
+      const ctxProxy: ActorContext<T> = {
+        ...ctx,
+        spawn: (behavior, name) => {
+          const actor = ctx.spawn(behavior, name);
+
+          effects.push({
+            type: 'start',
+            actor,
+          });
+
+          actor.start();
+
+          return actor;
+        },
+      };
+      const nextState = isSetup
+        ? setup(state, ctxProxy)
+        : reducer(state, msg, ctxProxy);
 
       const nextTaggedState = isTaggedState(nextState)
         ? nextState
