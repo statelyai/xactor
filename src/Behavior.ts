@@ -26,6 +26,37 @@ export function isTaggedState<TState>(
   return typeof state === 'object' && state !== null && '$$tag' in state;
 }
 
+function createContextProxy<T>(ctx: ActorContext<T>): [ActorContext<T>, any[]] {
+  const effects: any[] = [];
+
+  return [
+    {
+      ...ctx,
+      spawn: (behavior, name) => {
+        const actor = ctx.spawn(behavior, name);
+
+        effects.push({
+          type: 'start',
+          actor,
+        });
+
+        return actor;
+      },
+      spawnFrom: (getEntity, name) => {
+        const actor = ctx.spawnFrom(getEntity, name);
+
+        effects.push({
+          type: 'start',
+          actor,
+        });
+
+        return actor;
+      },
+    },
+    effects,
+  ];
+}
+
 export function createBehavior<T, TState = any>(
   reducer: BehaviorReducer<TState, T>,
   initial: TState
@@ -34,22 +65,7 @@ export function createBehavior<T, TState = any>(
     (taggedState, msg, ctx) => {
       const { state, $$tag: tag } = taggedState;
 
-      const effects: any[] = [];
-      const ctxProxy: ActorContext<T> = {
-        ...ctx,
-        spawn: (behavior, name) => {
-          const actor = ctx.spawn(behavior, name);
-
-          effects.push({
-            type: 'start',
-            actor,
-          });
-
-          actor.start();
-
-          return actor;
-        },
-      };
+      const [ctxProxy, effects] = createContextProxy(ctx);
       const nextState = reducer(state, msg, ctxProxy);
 
       const nextTaggedState = isTaggedState(nextState)
@@ -57,7 +73,7 @@ export function createBehavior<T, TState = any>(
         : {
             state: nextState,
             $$tag: tag === BehaviorTag.Setup ? BehaviorTag.Default : tag,
-            effects: [],
+            effects,
           };
 
       return nextTaggedState;
@@ -88,32 +104,17 @@ export function createSetupBehavior<T, TState = any>(
       const { state, $$tag: tag } = taggedState;
       const isSetup = tag === BehaviorTag.Setup;
 
-      const effects: any[] = [];
-      const ctxProxy: ActorContext<T> = {
-        ...ctx,
-        spawn: (behavior, name) => {
-          const actor = ctx.spawn(behavior, name);
-
-          effects.push({
-            type: 'start',
-            actor,
-          });
-
-          actor.start();
-
-          return actor;
-        },
-      };
+      const [ctxProxy, effects] = createContextProxy(ctx);
       const nextState = isSetup
         ? setup(state, ctxProxy)
         : reducer(state, msg, ctxProxy);
 
       const nextTaggedState = isTaggedState(nextState)
-        ? nextState
+        ? { ...nextState, effects }
         : {
             state: nextState,
             $$tag: isSetup ? BehaviorTag.Default : tag,
-            effects: [],
+            effects,
           };
 
       return nextTaggedState;

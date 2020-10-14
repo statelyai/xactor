@@ -107,11 +107,12 @@ export class Actor<T, TEmitted = any>
 
   public start(): void {
     this.status = ActorRefStatus.Idle;
-    this.taggedState = this.reducer(
+    const initialTaggedState = this.reducer(
       this.taggedState,
       { type: ActorSignalType.Start },
       this.actorContext
     );
+    this.update(initialTaggedState);
     this.flush();
   }
 
@@ -142,33 +143,34 @@ export class Actor<T, TEmitted = any>
 
     this.status = ActorRefStatus.Processing;
 
-    const { state, $$tag: tag, effects } = this.reducer(
+    const nextTaggedState = this.reducer(
       this.taggedState,
       message,
-      { ...this.actorContext }
+      this.actorContext
     );
 
+    this.update(nextTaggedState);
+
+    this.status = ActorRefStatus.Idle;
+  }
+
+  private update(taggedState: TaggedState<any>) {
+    this.taggedState = taggedState;
+
+    const { effects } = taggedState;
     effects.forEach(effect => {
       if ('actor' in effect) {
         (effect.actor as any).start();
       }
     });
 
-    this.taggedState = { state, $$tag: tag, effects };
-
     this.topics.listeners.forEach(listener => {
-      listener(state);
+      listener(taggedState.state);
     });
 
-    if (tag === BehaviorTag.Stopped) {
+    if (taggedState.$$tag === BehaviorTag.Stopped) {
       this.stop();
     }
-
-    // const nextBehavior = this.behavior.receive(this.actorContext, message);
-
-    // this.behavior = this.resolveBehavior(nextBehavior);
-
-    this.status = ActorRefStatus.Idle;
   }
 
   private stop() {
