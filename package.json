@@ -21,7 +21,7 @@
   "peerDependencies": {},
   "husky": {
     "hooks": {
-      "xpre-commit": "tsdx lint"
+      "pre-commit": "tsdx lint"
     }
   },
   "prettier": {
@@ -40,5 +40,12 @@
     "tsdx": "^0.14.1",
     "tslib": "^2.0.0",
     "typescript": "^4.1.3"
+  },
+  "resolutions": {
+    "**/@typescript-eslint/eslint-plugin": "^4.11.1",
+    "**/@typescript-eslint/parser": "^4.11.1",
+    "**/jest": "^26.6.3",
+    "**/ts-jest": "^26.4.4",
+    "**/typescript": "^4.1.3"
   }
 }
