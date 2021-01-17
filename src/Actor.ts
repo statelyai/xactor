@@ -14,6 +14,7 @@ import { ActorSystem } from './ActorSystem';
 import { fromEntity } from './Behavior';
 
 enum ActorRefStatus {
+  Deferred = -1,
   Idle = 0,
   Processing = 1,
 }
@@ -25,7 +26,7 @@ export class Actor<T, TEmitted = any>
   private actorContext: ActorContext<T>;
   private children = new Set<ActorRef<any>>();
   private mailbox: T[] = [];
-  private status: ActorRefStatus = ActorRefStatus.Idle;
+  private status: ActorRefStatus = ActorRefStatus.Deferred;
   private reducer: Behavior<T>[0];
   private taggedState: TaggedState<any>;
 
@@ -99,12 +100,20 @@ export class Actor<T, TEmitted = any>
       },
     };
 
-    // start immediately?
-    this.taggedState = this.reducer(
+    // Don't start immediately
+    // TODO: add as config option to start immediately?
+    // this.start();
+  }
+
+  public start(): void {
+    this.status = ActorRefStatus.Idle;
+    const initialTaggedState = this.reducer(
       this.taggedState,
       { type: ActorSignalType.Start },
       this.actorContext
     );
+    this.update(initialTaggedState);
+    this.flush();
   }
 
   public receive(message: T): void {
@@ -134,27 +143,34 @@ export class Actor<T, TEmitted = any>
 
     this.status = ActorRefStatus.Processing;
 
-    const { state, $$tag: tag } = this.reducer(
+    const nextTaggedState = this.reducer(
       this.taggedState,
       message,
       this.actorContext
     );
 
-    this.taggedState = { state, $$tag: tag, effects: [] };
-
-    this.topics.listeners.forEach(listener => {
-      listener(state);
-    });
-
-    if (tag === BehaviorTag.Stopped) {
-      this.stop();
-    }
-
-    // const nextBehavior = this.behavior.receive(this.actorContext, message);
-
-    // this.behavior = this.resolveBehavior(nextBehavior);
+    this.update(nextTaggedState);
 
     this.status = ActorRefStatus.Idle;
+  }
+
+  private update(taggedState: TaggedState<any>) {
+    this.taggedState = taggedState;
+
+    const { effects } = taggedState;
+    effects.forEach(effect => {
+      if ('actor' in effect) {
+        (effect.actor as any).start();
+      }
+    });
+
+    this.topics.listeners.forEach(listener => {
+      listener(taggedState.state);
+    });
+
+    if (taggedState.$$tag === BehaviorTag.Stopped) {
+      this.stop();
+    }
   }
 
   private stop() {
@@ -162,7 +178,6 @@ export class Actor<T, TEmitted = any>
       this.actorContext.stop(child);
     });
     this.receiveSignal({ type: ActorSignalType.PostStop });
-    console.log('signaling stop to watchers', this.name);
     this.topics.watchers.forEach(watcher => {
       watcher.signal({
         type: ActorSignalType.Terminated,

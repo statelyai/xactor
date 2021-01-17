@@ -197,6 +197,7 @@ describe('ActorSystem', () => {
         { sessions: ActorRef<SessionCommand>[] }
       >(
         (state, message, context) => {
+          context.log(message);
           switch (message.type) {
             case 'GetSession':
               const ses = context.spawn(
@@ -233,6 +234,7 @@ describe('ActorSystem', () => {
 
     const Gabbler = () => {
       return createBehavior<SessionEvent>((_, message, context) => {
+        context.log(message);
         switch (message.type) {
           case 'SessionGranted':
             message.handle.send({
@@ -256,6 +258,7 @@ describe('ActorSystem', () => {
     const Main = () =>
       createSetupBehavior(
         (_, context) => {
+          context.log('setting up');
           const chatRoom = context.spawn(ChatRoom(), 'chatRoom');
           const gabblerRef = context.spawn(Gabbler(), 'gabbler');
 
@@ -334,7 +337,6 @@ describe('ActorSystem', () => {
       OrchestratorState,
       OrchestratorEvent
     > = (state, event, ctx) => {
-      console.log('>>>', state);
       if (event.type === 'entity.add') {
         let entity = state.entities.get(event.entityId);
         if (!entity) {

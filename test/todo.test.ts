@@ -22,7 +22,7 @@ describe('todo example', () => {
         }
       >(
         (state, msg, ctx) => {
-          console.log(state, msg);
+          ctx.log(state, msg);
           switch (msg.type) {
             case 'add':
               return {

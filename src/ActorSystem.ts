@@ -29,6 +29,7 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
 
   constructor(behavior: Behavior<T, TEmitted>, public name: string) {
     this.guardian = new ActorRef(behavior, name, this);
+    this.guardian.start();
   }
 
   public send(message: T) {
