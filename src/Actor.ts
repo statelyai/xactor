@@ -172,7 +172,6 @@ export class Actor<T, TEmitted = any>
       this.stop();
     }
   }
-
   private stop() {
     this.actorContext.children.forEach(child => {
       this.actorContext.stop(child);
