@@ -7,6 +7,12 @@ export interface ActorRef<T, TEmitted = any> extends Subscribable<TEmitted> {
   send(message: T): void;
 }
 
+export type ActorRefOf<
+  TBehavior extends Behavior<any, any>
+> = TBehavior extends Behavior<infer TEvent, infer TState>
+  ? ActorRef<TEvent, TState>
+  : never;
+
 function unhandledErrorListener(error: any) {
   console.error(error);
 }
