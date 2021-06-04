@@ -1,29 +1,42 @@
 import { ActorSystem } from './ActorSystem';
 import { Actor, Listener } from './Actor';
-import { ActorSignal, Behavior, Subscribable, Observer } from './types';
+import {
+  ActorSignal,
+  Behavior,
+  Subscribable,
+  Observer,
+  EventObject,
+} from './types';
 import { symbolObservable } from './observable';
 
-export interface ActorRef<T, TEmitted = any> extends Subscribable<TEmitted> {
-  send(message: T): void;
+export interface BaseActorRef<T, TEmitted = any>
+  extends Subscribable<TEmitted> {
+  send: (event: T) => void;
+}
+
+export interface ActorRef<TEvent extends EventObject, TEmitted = any>
+  extends Subscribable<TEmitted> {
+  send: (event: TEvent) => void;
 }
 
 export type ActorRefOf<
   TBehavior extends Behavior<any, any>
 > = TBehavior extends Behavior<infer TEvent, infer TState>
-  ? ActorRef<TEvent, TState>
+  ? XActorRef<TEvent, TState>
   : never;
 
 function unhandledErrorListener(error: any) {
   console.error(error);
 }
 
-export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
-  private actor: Actor<T, TEmitted>;
+export class XActorRef<TEvent extends EventObject, TEmitted = any>
+  implements Subscribable<TEmitted>, ActorRef<TEvent, TEmitted> {
+  private actor: Actor<TEvent, TEmitted>;
   // private system: ActorSystem<any>;
   public name: string;
 
   constructor(
-    behavior: Behavior<T, TEmitted>,
+    behavior: Behavior<TEvent, TEmitted>,
     name: string,
     system: ActorSystem<any>
   ) {
@@ -37,7 +50,7 @@ export class ActorRef<T, TEmitted = any> implements Subscribable<TEmitted> {
     this.actor.start();
   }
 
-  public send(message: T): void {
+  public send(message: TEvent): void {
     this.actor.receive(message);
   }
 

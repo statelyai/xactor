@@ -1,12 +1,13 @@
 import { Listener } from './Actor';
-import { ActorRef } from './ActorRef';
+import { XActorRef } from './ActorRef';
 import { symbolObservable } from './observable';
-import { Behavior, Subscribable, Observer } from './types';
+import { Behavior, Subscribable, Observer, EventObject } from './types';
 
-export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
+export class ActorSystem<TEvent extends EventObject, TEmitted = any>
+  implements Subscribable<TEmitted> {
   public settings: any;
-  private guardian: ActorRef<T>;
-  public logger = (actorRef: ActorRef<any>) => (...args: any[]) => {
+  private guardian: XActorRef<TEvent>;
+  public logger = (actorRef: XActorRef<any>) => (...args: any[]) => {
     const label =
       actorRef === this.guardian
         ? `[${this.name}]`
@@ -17,22 +18,22 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
   // TODO: structured logging
   public logs: Array<
     | {
-        from: ActorRef<any>;
-        to: ActorRef<any>;
+        from: XActorRef<any>;
+        to: XActorRef<any>;
         message: any;
       }
     | {
-        ref: ActorRef<any>;
+        ref: XActorRef<any>;
         log: string;
       }
   > = [];
 
-  constructor(behavior: Behavior<T, TEmitted>, public name: string) {
-    this.guardian = new ActorRef(behavior, name, this);
+  constructor(behavior: Behavior<TEvent, TEmitted>, public name: string) {
+    this.guardian = new XActorRef(behavior, name, this);
     this.guardian.start();
   }
 
-  public send(message: T) {
+  public send(message: TEvent) {
     this.guardian.send(message);
   }
 
@@ -49,9 +50,9 @@ export class ActorSystem<T, TEmitted = any> implements Subscribable<TEmitted> {
   }
 }
 
-export function createSystem<T, TEmitted = any>(
-  behavior: Behavior<T, TEmitted>,
+export function createSystem<TEvent extends EventObject, TEmitted = any>(
+  behavior: Behavior<TEvent, TEmitted>,
   name: string
 ) {
-  return new ActorSystem<T, TEmitted>(behavior, name);
+  return new ActorSystem<TEvent, TEmitted>(behavior, name);
 }

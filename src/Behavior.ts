@@ -1,4 +1,4 @@
-import { ActorRef } from './ActorRef';
+import { XActorRef } from './ActorRef';
 import {
   ActorContext,
   BehaviorTag,
@@ -10,6 +10,7 @@ import {
   Subscribable,
   Observer,
   Subscription,
+  EventObject,
 } from './types';
 
 export const isSignal = (msg: any): msg is ActorSignal => {
@@ -26,7 +27,9 @@ export function isTaggedState<TState>(
   return typeof state === 'object' && state !== null && '$$tag' in state;
 }
 
-function createContextProxy<T>(ctx: ActorContext<T>): [ActorContext<T>, any[]] {
+function createContextProxy<TEvent extends EventObject>(
+  ctx: ActorContext<TEvent>
+): [ActorContext<TEvent>, any[]] {
   const effects: any[] = [];
 
   return [
@@ -57,10 +60,10 @@ function createContextProxy<T>(ctx: ActorContext<T>): [ActorContext<T>, any[]] {
   ];
 }
 
-export function createBehavior<T, TState = any>(
-  reducer: BehaviorReducer<TState, T>,
+export function createBehavior<TEvent extends EventObject, TState = any>(
+  reducer: BehaviorReducer<TState, TEvent>,
   initial: TState
-): Behavior<T, TState> {
+): Behavior<TEvent, TState> {
   return [
     (taggedState, msg, ctx) => {
       const { state, $$tag: tag } = taggedState;
@@ -82,23 +85,23 @@ export function createBehavior<T, TState = any>(
   ];
 }
 
-export function createStatelessBehavior<T>(
-  reducer: BehaviorReducer<undefined, T>
-): Behavior<T, undefined> {
+export function createStatelessBehavior<TEvent extends EventObject>(
+  reducer: BehaviorReducer<undefined, TEvent>
+): Behavior<TEvent, undefined> {
   return createBehavior((_, msg, ctx) => {
     reducer(undefined, msg, ctx);
     return undefined;
   }, undefined);
 }
 
-export function createSetupBehavior<T, TState = any>(
+export function createSetupBehavior<TEvent extends EventObject, TState = any>(
   setup: (
     initialState: TState,
-    ctx: ActorContext<T>
+    ctx: ActorContext<TEvent>
   ) => TState | TaggedState<TState>,
-  reducer: BehaviorReducer<TState, T>,
+  reducer: BehaviorReducer<TState, TEvent>,
   initial: TState
-): Behavior<T, TState> {
+): Behavior<TEvent, TState> {
   return [
     (taggedState, msg, ctx) => {
       const { state, $$tag: tag } = taggedState;
@@ -134,9 +137,9 @@ export function withTag<TState>(
   };
 }
 
-export function createTimeout<T>(
-  parentRef: ActorRef<T>,
-  fn: (parentRef: ActorRef<T>) => void,
+export function createTimeout<TEvent extends EventObject>(
+  parentRef: XActorRef<TEvent>,
+  fn: (parentRef: XActorRef<TEvent>) => void,
   timeout: number
 ): Behavior<any> {
   return [

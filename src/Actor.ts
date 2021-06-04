@@ -8,8 +8,9 @@ import {
   Observer,
   SubscribableByObserver,
   Subscribable,
+  EventObject,
 } from './types';
-import { ActorRef } from './ActorRef';
+import { XActorRef } from './ActorRef';
 import { ActorSystem } from './ActorSystem';
 import { fromEntity } from './Behavior';
 
@@ -21,26 +22,26 @@ enum ActorRefStatus {
 
 export type Listener<T> = (emitted: T) => void;
 
-export class Actor<T, TEmitted = any>
+export class Actor<TEvent extends EventObject, TEmitted = any>
   implements SubscribableByObserver<TEmitted> {
-  private actorContext: ActorContext<T>;
-  private children = new Set<ActorRef<any>>();
-  private mailbox: T[] = [];
+  private actorContext: ActorContext<TEvent>;
+  private children = new Set<XActorRef<any>>();
+  private mailbox: TEvent[] = [];
   private status: ActorRefStatus = ActorRefStatus.Deferred;
-  private reducer: Behavior<T>[0];
+  private reducer: Behavior<TEvent>[0];
   private taggedState: TaggedState<any>;
 
   // same as `watching` in Scala ActorRef
   private topics = {
-    watchers: new Set<ActorRef<any>>(),
+    watchers: new Set<XActorRef<any>>(),
     listeners: new Set<Listener<any>>(),
     errorListeners: new Set<Listener<any>>(),
   };
 
   constructor(
-    behavior: Behavior<T, TEmitted>,
+    behavior: Behavior<TEvent, TEmitted>,
     public name: string,
-    ref: ActorRef<T>,
+    ref: XActorRef<TEvent>,
     private system: ActorSystem<any>
   ) {
     [this.reducer, this.taggedState] = behavior;
@@ -59,7 +60,7 @@ export class Actor<T, TEmitted = any>
       },
       children: this.children,
       spawn: this.spawn.bind(this),
-      spawnFrom: <U extends T>(
+      spawnFrom: <U extends TEvent>(
         getPromise: () => Promise<U> | Subscribable<U>,
         name: string
       ) => {
@@ -85,11 +86,11 @@ export class Actor<T, TEmitted = any>
 
         actorRef.send(message);
       },
-      stop: (child: ActorRef<any>): void => {
+      stop: (child: XActorRef<any>): void => {
         child.signal({ type: ActorSignalType.PostStop });
         this.children.delete(child);
       },
-      subscribeTo: (topic: 'watchers', subscriberRef: ActorRef<any>) => {
+      subscribeTo: (topic: 'watchers', subscriberRef: XActorRef<any>) => {
         this.topics[topic].add(subscriberRef);
       },
       watch: actorRef => {
@@ -116,7 +117,7 @@ export class Actor<T, TEmitted = any>
     this.flush();
   }
 
-  public receive(message: T): void {
+  public receive(message: TEvent): void {
     this.mailbox.push(message);
     if (this.status === ActorRefStatus.Idle) {
       this.flush();
@@ -132,7 +133,7 @@ export class Actor<T, TEmitted = any>
 
     this.taggedState = state;
   }
-  private process(message: T): void {
+  private process(message: TEvent): void {
     if (this.taggedState.$$tag === BehaviorTag.Stopped) {
       console.warn(
         `Attempting to send message to stopped actor ${this.name}`,
@@ -192,8 +193,11 @@ export class Actor<T, TEmitted = any>
     }
   }
 
-  private spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U> {
-    const child = new ActorRef<U>(behavior, name, this.system);
+  private spawn<UEvent extends EventObject>(
+    behavior: Behavior<UEvent>,
+    name: string
+  ): XActorRef<UEvent> {
+    const child = new XActorRef<UEvent>(behavior, name, this.system);
     this.children.add(child);
     return child;
   }

@@ -1,5 +1,5 @@
 export { ActorSystem, createSystem } from './ActorSystem';
-export { ActorRef } from './ActorRef';
+export { XActorRef as ActorRef } from './ActorRef';
 export {
   createBehavior,
   createSetupBehavior,

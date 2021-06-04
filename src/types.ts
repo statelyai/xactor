@@ -1,4 +1,4 @@
-import { ActorRef } from './ActorRef';
+import { XActorRef } from './ActorRef';
 import { ActorSystem } from './ActorSystem';
 
 export interface Subscription {
@@ -56,22 +56,25 @@ export interface SubscribableByObserver<T> {
 
 export type Logger = any;
 
-export interface ActorContext<T> {
-  self: ActorRef<T>;
+export interface ActorContext<TEvent extends EventObject> {
+  self: XActorRef<TEvent>;
   system: ActorSystem<any>;
   log: Logger;
-  children: Set<ActorRef<any>>;
-  watch: (actorRef: ActorRef<any>) => void;
-  send: <U>(actorRef: ActorRef<U>, message: U) => void;
-  subscribeTo: (topic: 'watchers', subscriber: ActorRef<any>) => void;
+  children: Set<XActorRef<any>>;
+  watch: (actorRef: XActorRef<any>) => void;
+  send: <U extends EventObject>(actorRef: XActorRef<U>, message: U) => void;
+  subscribeTo: (topic: 'watchers', subscriber: XActorRef<any>) => void;
 
   // spawnAnonymous<U>(behavior: Behavior<U>): ActorRef<U>;
-  spawn<U>(behavior: Behavior<U>, name: string): ActorRef<U>;
-  spawnFrom<U extends T>(
+  spawn<U extends EventObject>(
+    behavior: Behavior<U>,
+    name: string
+  ): XActorRef<U>;
+  spawnFrom<U extends TEvent>(
     getEntity: () => Promise<U> | Subscribable<U>,
     name: string
-  ): ActorRef<any, U | undefined>;
-  stop<U>(child: ActorRef<U>): void;
+  ): XActorRef<any, U | undefined>;
+  stop<U extends EventObject>(child: XActorRef<U>): void;
 }
 
 export enum ActorSignalType {
@@ -86,9 +89,9 @@ export enum ActorSignalType {
 export type ActorSignal =
   | { type: ActorSignalType.Start }
   | { type: ActorSignalType.PostStop }
-  | { type: ActorSignalType.Watch; ref: ActorRef<any> }
-  | { type: ActorSignalType.Terminated; ref: ActorRef<any> }
-  | { type: ActorSignalType.Subscribe; ref: ActorRef<any> }
+  | { type: ActorSignalType.Watch; ref: XActorRef<any> }
+  | { type: ActorSignalType.Terminated; ref: XActorRef<any> }
+  | { type: ActorSignalType.Subscribe; ref: XActorRef<any> }
   | { type: ActorSignalType.Emit; value: any };
 
 export enum BehaviorTag {
@@ -103,17 +106,21 @@ export interface TaggedState<TState> {
   effects: any[];
 }
 
-export type Behavior<T, TState = any> = [
+export type Behavior<TEvent extends EventObject, TState = any> = [
   (
     state: TaggedState<TState>,
-    message: T | ActorSignal,
-    ctx: ActorContext<T>
+    message: TEvent | ActorSignal,
+    ctx: ActorContext<TEvent>
   ) => TaggedState<TState>,
   TaggedState<TState>
 ];
 
-export type BehaviorReducer<TState, TEvent> = (
+export type BehaviorReducer<TState, TEvent extends EventObject> = (
   state: TState,
   event: TEvent | ActorSignal,
   actorCtx: ActorContext<TEvent>
 ) => TState | TaggedState<TState>;
+
+export interface EventObject {
+  type: string;
+}

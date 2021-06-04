@@ -4,7 +4,7 @@ import { map } from 'rxjs/operators';
 
 describe('behaviors', () => {
   it('should result in same behavior', done => {
-    const helloWorldBehavior = createBehavior<{ whom: string }>(
+    const helloWorldBehavior = createBehavior<{ type: 'greet'; whom: string }>(
       (_, message) => {
         if (isSignal(message)) {
           return undefined;
@@ -19,7 +19,7 @@ describe('behaviors', () => {
 
     const system = createSystem(helloWorldBehavior, 'Hello');
 
-    system.send({ whom: 'David' });
+    system.send({ type: 'greet', whom: 'David' });
 
     setTimeout(() => {
       done();

@@ -32,15 +32,18 @@ describe('ActorSystem', () => {
 
   it('First example', done => {
     interface Greet {
+      type: 'greet';
       whom: string;
       replyTo: ActorRef<Greeted>;
     }
     interface Greeted {
+      type: 'greeted';
       whom: string;
       from: ActorRef<Greet>;
     }
 
     interface SayHello {
+      type: 'sayHello';
       name: string;
     }
 
@@ -50,6 +53,7 @@ describe('ActorSystem', () => {
       ctx.log(`Hello ${message.whom}!`);
 
       message.replyTo.send({
+        type: 'greeted',
         whom: message.whom,
         from: ctx.self,
       });
@@ -71,6 +75,7 @@ describe('ActorSystem', () => {
               return state; // do nothing
             } else {
               message.from.send({
+                type: 'greet',
                 whom: message.whom,
                 replyTo: ctx.self,
               });
@@ -92,14 +97,12 @@ describe('ActorSystem', () => {
         return { greeter: ctx.spawn(HelloWorld, 'greeter') };
       },
       ({ greeter }, message, ctx) => {
-        if ('name' in message) {
-          const replyTo = ctx.spawn(
-            HelloWorldBot(3),
-            (message as SayHello).name
-          );
+        if (message.type === 'sayHello') {
+          const replyTo = ctx.spawn(HelloWorldBot(3), message.name);
 
           greeter?.send({
-            whom: (message as SayHello).name,
+            type: 'greet',
+            whom: message.name,
             replyTo,
           });
         }
@@ -113,8 +116,8 @@ describe('ActorSystem', () => {
 
     const system = createSystem(HelloWorldMain, 'hello');
 
-    system.send({ name: 'World' });
-    system.send({ name: 'Akka' });
+    system.send({ type: 'sayHello', name: 'World' });
+    system.send({ type: 'sayHello', name: 'Akka' });
 
     setTimeout(() => {
       done();
