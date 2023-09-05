@@ -8,7 +8,7 @@
 </p>
 
 > [!IMPORTANT]
-> This library is no longer maintained. Please see [XState v5](https://github.com/statelyai/xstate), which now haw first-class support for the actor model.
+> This library is no longer maintained. Please see [XState v5](https://github.com/statelyai/xstate), which now has first-class support for the actor model.
 
 
 XActor is an [actor model](https://en.wikipedia.org/wiki/Actor_model) implementation for JavaScript and TypeScript, heavily inspired by [Akka](https://akka.io/). It represents the "actor model" parts of [XState](https://github.com/davidkpiano/xstate) and can be used with or without XState.
